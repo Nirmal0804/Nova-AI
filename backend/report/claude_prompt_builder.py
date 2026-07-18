@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from backend.report.templates import REPORT_SYSTEM_PROMPT, REPORT_USER_TEMPLATE
+from backend.report.templates import REPORT_SYSTEM_PROMPT, REPORT_USER_PROMPT
 from backend.report.schemas import ReportRequest
 
 class ReportPromptPayload(BaseModel):
@@ -8,7 +8,7 @@ class ReportPromptPayload(BaseModel):
 
 class ClaudePromptBuilder:
     def build_prompt(self, request: ReportRequest) -> ReportPromptPayload:
-        user_prompt = REPORT_USER_TEMPLATE.format(
+        user_prompt = REPORT_USER_PROMPT.format(
             dominant_land_cover=request.dominant_land_cover,
             secondary_land_cover=request.secondary_land_cover or "None",
             confidence=request.confidence,

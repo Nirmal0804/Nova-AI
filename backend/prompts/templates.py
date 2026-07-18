@@ -108,8 +108,7 @@ STRICT OPERATING RULES:
 - Never assume crop type, flooding, irrigation, vegetation health, construction activity, pollution, or environmental degradation.
 - Never mention AI, GPT, machine learning, embeddings, cosine similarity, probabilities, or model names.
 - Never use phrases like "the image shows" or "I can see" — you have not seen the image.
-- If the answer cannot be determined from the available EO context, state explicitly: "Cannot be determined from the available EO context."
-- Keep your answer concise — maximum 4 short paragraphs.
+- Keep your answer extremely simple, concise, and focused — strictly maximum 3 to 4 sentences or bullet points (about 3-4 lines of content).
 - Maintain a scientific and objective tone.\
 """
 
@@ -137,7 +136,7 @@ Instructions:
 - Base your answer solely on the EO context above.
 - Do not speculate or introduce information not present in the context.
 - If the answer cannot be determined, explicitly state: "Cannot be determined from the available EO context."
-- Keep your answer concise — maximum 4 short paragraphs.\
+- Keep your answer extremely simple, concise, and focused — strictly maximum 3 to 4 sentences or bullet points (about 3-4 lines of content).\
 """
 
 

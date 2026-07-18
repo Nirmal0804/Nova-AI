@@ -36,8 +36,10 @@ function NovaDemo() {
     if (!prompt && !file) return;
     if (file && status !== "running") {
       runAnalysis(prompt);
+      setChatInput("");
     } else if (result && status !== "running") {
       askInsight(prompt);
+      setChatInput("");
     }
   };
 
@@ -48,31 +50,24 @@ function NovaDemo() {
   };
 
   return (
-    <div className="cb-root">
+    <div className="cb-root" style={{ paddingTop: '80px' }}>
       <div id="stars"></div>
 
-      <div className="cb-layout">
-        {/* SIDEBAR */}
-        <aside className="cb-sidebar">
-          <div className="cb-sidebar-top">
-            <button className={`cb-sidebar-btn ${!showHistory ? 'active' : ''}`} title="New Chat" onClick={handleResetChat}>✨</button>
-            <button className={`cb-sidebar-btn ${showHistory ? 'active' : ''}`} title="History" onClick={() => setShowHistory(true)}>📜</button>
-            <button className="cb-sidebar-btn" title="Saved Reports">📁</button>
-          </div>
-        </aside>
+      <nav className="nova-nav">
+        <div className="nova-logo">
+          <div className="nova-dot" />
+          NOVA AI
+          <span className="nova-live">● LIVE</span>
+        </div>
+        <ul className="nova-links">
+          <li><Link to="/">Home</Link></li>
+        </ul>
+        <div className="nova-tag">SIH25170</div>
+      </nav>
 
+      <div className="cb-layout">
         {/* MAIN AREA */}
         <main className="cb-main">
-          {/* HEADER */}
-          <header className="cb-header">
-            <Link to="/" className="cb-logo-text">
-              <div className="cb-dot" />
-              NOVA AI
-            </Link>
-            <Link to="/" className="cb-back-link">
-              ← Back to overview
-            </Link>
-          </header>
 
           {showHistory ? (
             <div className="cb-history-view">

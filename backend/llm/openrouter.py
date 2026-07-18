@@ -30,12 +30,13 @@ class OpenRouterClient(BaseLLMProvider):
         retry=retry_if_exception_type((APIConnectionError, APITimeoutError)),
         reraise=True
     )
-    async def _make_request(self, messages: list) -> Any:
-        logger.info(f"Sending request to OpenRouter for model: {self.model}")
+    async def _make_request(self, messages: list, max_tokens: int = 3000) -> Any:
+        logger.info(f"Sending request to OpenRouter for model: {self.model} with max_tokens={max_tokens}")
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
-                messages=messages
+                messages=messages,
+                max_tokens=max_tokens
             )
             return response
 
@@ -58,7 +59,7 @@ class OpenRouterClient(BaseLLMProvider):
             logger.error("Unexpected error occurred while calling OpenRouter")
             raise
 
-    async def generate_response(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
+    async def generate_response(self, system_prompt: str, user_prompt: str, max_tokens: int = 3000) -> Dict[str, Any]:
         if not self.api_key or self.api_key == "your_api_key_here":
             logger.error("API Key is missing or invalid.")
             raise ValueError("Invalid completely or missing API Key")
@@ -72,7 +73,7 @@ class OpenRouterClient(BaseLLMProvider):
             {"role": "user", "content": user_prompt}
         ]
 
-        response = await self._make_request(messages)
+        response = await self._make_request(messages, max_tokens=max_tokens)
 
         # Extract the necessary format
         try:

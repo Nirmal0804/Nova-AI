@@ -20,6 +20,8 @@ Design rules:
 """
 
 import time
+import json
+import base64
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -47,6 +49,7 @@ from backend.schemas.analysis import (
 from backend.utils.logger import logger
 from backend.report.schemas import ReportRequest, ReportResponse
 from backend.report.report_service import report_service
+from backend.report.html_renderer import html_renderer
 
 
 class AnalysisService:
@@ -151,13 +154,48 @@ class AnalysisService:
             logger.warning(f"[analyze_image] Stage 6: GPT unavailable — {gpt_warning}.")
 
         # ----------------------------------------------------------------
-        # Stage 6.5 — Claude Professional Report (non-fatal)
+        # Stage 6.5 — Claude Professional Report & Unified HTML
         # ----------------------------------------------------------------
         professional_report = None
         report_model_id = None
         
+        # Build frontend-compatible classes first for HTML renderer
+        # NOTE: Use raw_outputs from Stage 3 directly — do NOT overwrite it.
+        raw_outputs_zs = raw_outputs["zero_shot_inspection"]
+        classes = self._build_classes(raw_outputs_zs)
+        
+        # Derive risk
+        risk_map = {"High": "Low", "Medium": "Medium", "Low": "High"}
+        risk_level = risk_map.get(eo_result.relative_confidence, "Medium")
+        
+        # Pre-build bulletproof fallbacks if Claude is offline or gives invalid JSON
+        fallback_json = {
+            "executive_dashboard": {
+                "overall_status": f"Monitored {eo_result.dominant_land_cover} Zone",
+                "risk_level": risk_level,
+                "scene_type": "Natural" if "forest" in str(eo_result.dominant_land_cover).lower() or "water" in str(eo_result.dominant_land_cover).lower() else "Urban"
+            },
+            "environmental_assessment": {
+                "vegetation": "High" if "forest" in str(eo_result.dominant_land_cover).lower() or "agricult" in str(eo_result.dominant_land_cover).lower() else "Low",
+                "urban_density": "High" if "urban" in str(eo_result.dominant_land_cover).lower() or "resid" in str(eo_result.dominant_land_cover).lower() else "Low",
+                "water_presence": "Detected" if "water" in str(eo_result.dominant_land_cover).lower() else "Not Detected",
+                "industrial_activity": "Detected" if "indust" in str(eo_result.dominant_land_cover).lower() else "Not Detected",
+                "environmental_risk": risk_level
+            },
+            "key_findings": [
+                f"Primary land cover classified as {eo_result.dominant_land_cover} with {eo_result.relative_confidence} confidence.",
+                f"Secondary structures indicate {eo_result.secondary_land_cover} mix." if eo_result.secondary_land_cover and eo_result.secondary_land_cover != "Undetermined" else "No dominant secondary structures detected.",
+                "Stable terrain conditions observed under current geospatial telemetry."
+            ],
+            "recommendations": [
+                "Establish periodic observation schedules to monitor changes.",
+                "Verify vegetation index adjustments over the next satellite pass."
+            ]
+        }
+
+        claude_json = {}
         if gpt_text:
-            logger.info("[analyze_image] Stage 6.5: Requesting Claude professional report.")
+            logger.info("[analyze_image] Stage 6.5: Requesting Claude JSON report.")
             try:
                 report_req = ReportRequest(
                     dominant_land_cover=eo_result.dominant_land_cover,
@@ -166,33 +204,59 @@ class AnalysisService:
                     summary=eo_result.summary,
                     gpt_analysis=gpt_text
                 )
-                report_res = await self.generate_professional_report(report_req)
+                report_res = await report_service.generate_professional_report(report_req)
                 
                 if report_res.report == "Report unavailable":
-                    logger.warning("[analyze_image] Stage 6.5: Claude unavailable. Using fallback.")
-                    gpt_warning = "Professional report unavailable." if not gpt_warning else f"{gpt_warning} | Professional report unavailable."
+                    logger.warning("[analyze_image] Stage 6.5: Claude unavailable. Merging fallback.")
+                    gpt_warning = "Professional report fallback used." if not gpt_warning else f"{gpt_warning} | Fallback used."
                 else:
-                    professional_report = report_res.report
                     report_model_id = report_res.model
-                    logger.info("[analyze_image] Stage 6.5: Claude report received.")
+                    raw_text = report_res.report.strip()
+                    if raw_text.startswith("```json"):
+                        raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+                    elif raw_text.startswith("```"):
+                        raw_text = raw_text.split("```")[1].split("```")[0].strip()
+                        
+                    try:
+                        claude_json = json.loads(raw_text)
+                    except json.JSONDecodeError:
+                        logger.error("[analyze_image] Stage 6.5: Claude JSON invalid")
+                        claude_json = {}
             except Exception as e:
                 logger.error(f"[analyze_image] Stage 6.5: Claude failed unexpectedly: {e}")
-                gpt_warning = "Professional report unavailable." if not gpt_warning else f"{gpt_warning} | Professional report unavailable."
+                gpt_warning = "Professional report fallback used." if not gpt_warning else f"{gpt_warning} | Fallback used."
+
+        # Merge Claude results with fallbacks to guarantee absolute structural integrity
+        merged_json = {
+            "executive_dashboard": {**fallback_json["executive_dashboard"], **claude_json.get("executive_dashboard", {})},
+            "environmental_assessment": {**fallback_json["environmental_assessment"], **claude_json.get("environmental_assessment", {})},
+            "key_findings": claude_json.get("key_findings", fallback_json["key_findings"])[:6],
+            "recommendations": claude_json.get("recommendations", fallback_json["recommendations"])[:4]
+        }
+
+        # Always construct the Unified report HTML using html_renderer
+        try:
+            img_b64 = base64.b64encode(image_bytes).decode("utf-8") if image_bytes else None
+            mock_resp_data = {
+                "dominant_land_cover": str(eo_result.dominant_land_cover),
+                "secondary_land_cover": str(eo_result.secondary_land_cover) if eo_result.secondary_land_cover and eo_result.secondary_land_cover != "Undetermined" else None,
+                "confidence": str(eo_result.relative_confidence),
+                "summary": eo_result.summary,
+                "classes": classes,
+                "risk_level": risk_level,
+            }
+            professional_report = html_renderer.render(mock_resp_data, merged_json, img_b64)
+            logger.info("[analyze_image] Stage 6.5: Unified HTML generated successfully.")
+        except Exception as render_err:
+            logger.error(f"[analyze_image] Stage 6.5 HTML Render crash: {render_err}")
+            professional_report = f"<h1>NovaAI Error</h1><p>Failed to render report: {render_err}</p>"
+
 
         # ----------------------------------------------------------------
         # Stage 7 — Assemble AnalysisResponse
         # ----------------------------------------------------------------
         pipeline_ms = (time.perf_counter() - pipeline_start) * 1000
         status = "success" if gpt_text else "partial_success"
-
-        # Build frontend-compatible land-cover classes from zero_shot_inspection scores.
-        # Normalise the top-N cosine similarities into percentages for the bar chart.
-        zero_shot = raw_outputs["zero_shot_inspection"]
-        classes = self._build_classes(zero_shot)
-
-        # Derive risk level from confidence band
-        risk_map = {"High": "Low", "Medium": "Medium", "Low": "High"}
-        risk_level = risk_map.get(eo_result.relative_confidence, "Medium")
 
         # Flags: surface partial-success and low-confidence situations
         flags = self._build_flags(status, eo_result.relative_confidence, gpt_warning)

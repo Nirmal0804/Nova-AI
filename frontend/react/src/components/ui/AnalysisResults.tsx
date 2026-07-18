@@ -19,227 +19,132 @@ interface AnalysisResultsProps {
 }
 
 export const AnalysisResults = memo(({ result, askInsight, insightLoading }: AnalysisResultsProps) => {
-  const [showMask, setShowMask] = useState(true);
-  const [showRaw, setShowRaw] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const downloadPdf = async () => {
+  const htmlContent = result.professional_report || "<p>No unified report available.</p>";
+
+  const downloadReport = async () => {
     setIsDownloading(true);
     try {
-      const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
-      const payload = { analysis: result };
-      const res = await fetch(`${API_BASE}/api/report/pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("Failed to generate PDF");
-      const blob = await res.blob();
+      const blob = new Blob([htmlContent], { type: "text/html" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `NovaAI_Report_${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
+      a.download = `NovaAI_Geospatial_Intelligence_Report_${new Date().toISOString().replace(/[:.]/g, "-")}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("PDF Download error", err);
-      alert("Failed to download PDF");
+      console.error("Report Download error", err);
+      alert("Failed to download HTML report");
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const rawText = result.professional_report || result.gpt_analysis || result.summary || "";
-
-  // Extract bullets securely
-  const extractBullets = (text: string) => {
-    if (!text) return ["Scene analysis completed successfully."];
-    // try capturing explicit bullets
-    const bullets = text.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.startsWith('-') || line.startsWith('*'))
-      .map(line => line.replace(/^[-*]\s*/, '').trim())
-      .filter(line => line.length > 5);
-
-    if (bullets.length >= 2) {
-      return bullets.slice(0, 5).map(b => b.split('.')[0] + '.');
-    }
-
-    // Fallback to sentences
-    const sentences = text.split(/[.?!]\s+/)
-      .map(s => s.trim())
-      .filter(s => s.length > 15 && s.length < 150 && !s.includes('#'));
-
-    if (sentences.length > 0) {
-      return sentences.slice(0, 5).map(s => s.endsWith('.') ? s : s + '.');
-    }
-
-    return ["Observation analysis complete."];
-  };
-
-  const findings = extractBullets(rawText);
-  const textLower = rawText.toLowerCase();
-  const hasKeyword = (words: string[]) => words.some(w => textLower.includes(w));
-
-  const vegStatus = hasKeyword(['dense forest', 'agriculture', 'lush', 'vegetation']) ? 'High' : hasKeyword(['sparse', 'some vegetation', 'grass']) ? 'Medium' : 'Low';
-  const urbanStatus = hasKeyword(['residential', 'industrial', 'urban', 'buildings', 'city']) ? 'High' : hasKeyword(['road', 'infrastructure', 'suburban']) ? 'Medium' : 'Low';
-  const waterStatus = hasKeyword(['water', 'river', 'lake', 'ocean', 'sea', 'coast', 'pool']) ? 'Detected' : 'Not Detected';
-  const indStatus = hasKeyword(['industrial', 'factory', 'manufacturing', 'plant']) ? 'Detected' : 'Not Detected';
-  const envRisk = result.risk_level || (hasKeyword(['risk', 'danger', 'hazard', 'pollution', 'flood']) ? 'High' : 'Low');
-
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => setShowMask(true)}>
-      <div className="cb-report-card nova-reveal nova-in">
-
-        <div className="cb-report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Earth Observation Dashboard</h3>
-          <button
-            className="cb-attach-btn"
-            onClick={downloadPdf}
-            disabled={isDownloading}
-            style={{ fontSize: '12px', padding: '6px 12px' }}
-          >
-            {isDownloading ? "Generating..." : "📄 Download PDF"}
-          </button>
-        </div>
-        <hr className="cb-divider" />
-
-        {/* SECTION 1 - AI SUMMARY */}
-        <div className="dashboard-section">
-          <h4 className="cb-section-title">🛰 AI Summary</h4>
-          <div className="dashboard-cards-grid">
-            <div className="dash-card">
-              <span className="dash-label">Primary Land Cover</span>
-              <span className="dash-value highlight">{result.dominant_land_cover || "N/A"}</span>
-            </div>
-            <div className="dash-card">
-              <span className="dash-label">Secondary Land Cover</span>
-              <span className="dash-value">{result.secondary_land_cover && result.secondary_land_cover !== "none" ? result.secondary_land_cover : "None"}</span>
-            </div>
-            <div className="dash-card">
-              <span className="dash-label">Confidence</span>
-              <span className="dash-value">{(result.confidence == 'High') ? '🟢 High' : (result.confidence == 'Medium' ? '🟡 Medium' : '🔴 Low')}</span>
-            </div>
-            <div className="dash-card">
-              <span className="dash-label">Overall Status</span>
-              <span className="dash-value">✅ {envRisk === 'High' ? 'Requires Attention' : 'Stable Urban Area'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 2 - KEY FINDINGS */}
-        <div className="dashboard-section">
-          <h4 className="cb-section-title">🔍 Key Findings</h4>
-          <ul className="dash-bullets">
-            {findings.map((f, i) => <li key={i}>✓ {f}</li>)}
-          </ul>
-        </div>
-
-        {/* SECTION 3 - ENVIRONMENTAL ASSESSMENT */}
-        <div className="dashboard-section">
-          <h4 className="cb-section-title">🌍 Environmental Assessment</h4>
-          <div className="env-badges-grid">
-            <div className="env-badge">
-              <span className="env-icon">🌱</span>
-              <span className="env-name">Vegetation</span>
-              <span className={`env-status status-${vegStatus.toLowerCase()}`}>{vegStatus}</span>
-            </div>
-            <div className="env-badge">
-              <span className="env-icon">🏙</span>
-              <span className="env-name">Urban Density</span>
-              <span className={`env-status status-${urbanStatus.toLowerCase()}`}>{urbanStatus}</span>
-            </div>
-            <div className="env-badge">
-              <span className="env-icon">💧</span>
-              <span className="env-name">Water Presence</span>
-              <span className={`env-status status-${waterStatus.toLowerCase().replace(' ', '-')}`}>{waterStatus}</span>
-            </div>
-            <div className="env-badge">
-              <span className="env-icon">🏭</span>
-              <span className="env-name">Industrial Activity</span>
-              <span className={`env-status status-${indStatus.toLowerCase().replace(' ', '-')}`}>{indStatus}</span>
-            </div>
-            <div className="env-badge">
-              <span className="env-icon">⚠</span>
-              <span className="env-name">Environmental Risk</span>
-              <span className={`env-status status-${envRisk.toLowerCase()}`}>{envRisk}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 4 - QUICK AI QUESTIONS */}
-        <div className="dashboard-section">
-          <h4 className="cb-section-title">💬 Quick AI Questions</h4>
-          <div className="cb-insights-grid">
-            <button disabled={insightLoading} onClick={() => askInsight("Explain the environment")}>🌱 Explain the environment</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Analyze infrastructure")}>🏗 Analyze infrastructure</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Assess possible risks")}>⚠ Assess possible risks</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Future land use")}>📈 Future land use</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Explain like I'm 10")}>🧠 Explain like I'm 10</button>
-          </div>
-          {insightLoading && <div className="cb-insight-loading"><div className="cb-dot small pulse" /> Generating Insight...</div>}
-        </div>
-
-        <hr className="cb-divider" />
-
-        {/* KEEP: Telemetry & Context */}
-        <div className="dashboard-section">
-          <h4 className="cb-section-title">📡 Telemetry & Context</h4>
-          <div className="cb-eo-panel">
-            <div className="cb-eo-grid">
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Resolution</span>
-                <span className="cb-eo-value">High</span>
-              </div>
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Projection</span>
-                <span className="cb-eo-value">EPSG:4326</span>
-              </div>
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Processing Time</span>
-                <span className="cb-eo-value">{result.metadata?.processing_time_ms || 0} ms</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* KEEP: Mask Image */}
-        {result.mask_image && (
-          <div className="dashboard-section">
-            <h4 className="cb-section-title">🗺 Segmentation Map</h4>
-            <div className="cb-report-image-container">
-              {showMask && <img src={`data:image/png;base64,${result.mask_image}`} alt="Mask" className="cb-mask-overlay" />}
-              <button className="cb-mask-toggle" onClick={() => setShowMask(!showMask)}>
-                {showMask ? "Hide SegMap" : "Show SegMap"}
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      {isFullscreen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: '#0f1115',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '20px',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h2 style={{ margin: 0, color: '#f8fafc', fontSize: '1.25rem', fontFamily: 'Space Mono, monospace' }}>NovaAI Unified Report</h2>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="cb-attach-btn"
+                onClick={downloadReport}
+                disabled={isDownloading}
+                style={{ height: '36px' }}
+              >
+                {isDownloading ? "Generating..." : "📄 Download HTML"}
+              </button>
+              <button
+                className="cb-attach-btn"
+                style={{ background: '#7f1d1d', borderColor: '#ef4444', color: '#fca5a5', height: '36px' }}
+                onClick={() => setIsFullscreen(false)}
+              >
+                ✕ Close Fullscreen
               </button>
             </div>
           </div>
-        )}
-
-        {/* KEEP: LC Breakdown Chart if it was previously there, actually the previous one didn't have it locally, but it might be passed via classes */}
-        {result.classes && result.classes.length > 0 && (
-          <div className="dashboard-section">
-            <h4 className="cb-section-title">📊 Land Cover Breakdown</h4>
-            <div className="cb-eo-flags">
-              {result.classes.map((c, idx) => (
-                <div key={idx} className="cb-eo-match-row">
-                  <span style={{ color: c.color }}>■ {c.label}</span>
-                  <span className="cb-eo-match-score">{c.pct.toFixed(1)}%</span>
-                </div>
-              ))}
-            </div>
+          <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
+            <iframe
+              srcDoc={htmlContent}
+              style={{ width: '100%', height: '100%', border: 'none', background: '#0f1115' }}
+              title="Unified HTML Report Fullscreen"
+            />
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="dashboard-section" style={{ marginTop: '20px' }}>
-          <details className="cb-raw-json">
-            <summary onClick={(e) => { e.preventDefault(); setShowRaw(!showRaw); }}>
-              {showRaw ? "Hide Raw Data" : "Show Technical Metadata"}
-            </summary>
-            {showRaw && <pre>{JSON.stringify(result.metadata || result, null, 2)}</pre>}
-          </details>
+      <div className="cb-report-card nova-reveal nova-in" style={{ padding: "10px", width: "100%", maxWidth: "1200px", margin: "0 auto" }}>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', gap: '10px' }}>
+          <button
+            className="cb-attach-btn"
+            onClick={() => setIsFullscreen(true)}
+            style={{ fontSize: '13px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            🔍 Toggle Fullscreen
+          </button>
+          <button
+            className="cb-attach-btn"
+            onClick={downloadReport}
+            disabled={isDownloading}
+            style={{ fontSize: '13px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            {isDownloading ? "Generating..." : "📄 Download Report (HTML)"}
+          </button>
+        </div>
+
+        <div style={{ width: '100%', height: '800px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+          <iframe
+            srcDoc={htmlContent}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            title="Unified HTML Report"
+          />
+        </div>
+
+        {/* QUICK AI QUESTIONS */}
+        <div className="dashboard-section" style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+          <h4 className="cb-section-title" style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', margin: '0 0 12px', fontFamily: 'Space Mono, monospace' }}>💬 Quick AI Questions</h4>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+            {[
+              { label: "🌱 Explain the environment", q: "Explain the environment" },
+              { label: "🏗 Analyze infrastructure", q: "Analyze infrastructure" },
+              { label: "⚠ Assess possible risks", q: "Assess possible risks" },
+              { label: "📈 Future land use", q: "Future land use" },
+              { label: "🧠 Explain like I'm 10", q: "Explain like I'm 10" }
+            ].map((btn, idx) => (
+              <button
+                key={idx}
+                className="cb-attach-btn"
+                disabled={insightLoading}
+                onClick={() => askInsight(btn.q)}
+                style={{ fontSize: '13px', padding: '8px 16px', height: 'auto', display: 'flex', alignItems: 'center' }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+          {insightLoading && (
+            <div className="cb-insight-loading" style={{ marginTop: '12px', fontSize: '0.9rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="cb-dot small pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--aurora)' }} /> Generating Insight...
+            </div>
+          )}
         </div>
 
       </div>

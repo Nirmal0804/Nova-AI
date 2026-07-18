@@ -199,59 +199,10 @@ export function useAnalysis() {
       setResult(data);
       setStatus("done");
 
-      setMessages((prev) => {
-        const historySnapshot = prev.filter(m => !m.isReport).map(m => ({ role: m.role, text: m.text }));
-
-        setTimeout(async () => {
-          try {
-            setIsStreaming(true);
-            const streamController = new AbortController();
-            setAbortController(streamController);
-            const res = await fetch(`${API_BASE}/api/chat/stream`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ question: prompt, result: data, history: historySnapshot }),
-              signal: streamController.signal
-            });
-            if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
-
-            const reader = res.body?.getReader();
-            const decoder = new TextDecoder();
-            if (!reader) throw new Error("No readable stream");
-
-            setMessages((m) => [...m, { role: "assistant", text: "" }]);
-
-            let done = false;
-            while (!done) {
-              const { value, done: streamDone } = await reader.read();
-              done = streamDone;
-              if (value) {
-                const text = decoder.decode(value, { stream: true });
-                setMessages((m) => {
-                  const updated = [...m];
-                  const last = updated[updated.length - 1];
-                  if (last && last.role === "assistant" && !last.isReport) {
-                    updated[updated.length - 1] = { ...last, text: last.text + text };
-                  }
-                  return updated;
-                });
-              }
-            }
-          } catch (err: any) {
-            if (err.name !== "AbortError") {
-              console.error("Follow-up chat failed", err);
-            }
-          } finally {
-            setIsStreaming(false);
-            setAbortController(null);
-          }
-        }, 50);
-
-        return [
-          ...prev,
-          { role: "assistant", text: data.professional_report || data.gpt_analysis || data.insight, isReport: true }
-        ];
-      });
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: data.professional_report || data.gpt_analysis || data.insight, isReport: true }
+      ]);
       setFile(null);
       setPreviewUrl(null);
 
