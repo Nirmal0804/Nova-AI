@@ -2,10 +2,10 @@ import { a as __toESM } from "../_runtime.mjs";
 import { n as require_jsx_runtime, r as require_react, t as QueryClientProvider } from "../_libs/react+tanstack__react-query.mjs";
 import { c as HeadContent, d as Outlet, f as lazyRouteComponent, g as useRouter, h as Link, m as createRootRouteWithContext, p as createFileRoute, s as Scripts, u as createRouter } from "../_libs/@tanstack/react-router+[...].mjs";
 import { t as QueryClient } from "../_libs/tanstack__query-core.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/router-BDanhK4M.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-CLeSrwHw.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
-var styles_default = "/assets/styles-I_TklctN.css";
+var styles_default = "/assets/styles-ZdMUtZgO.css";
 function reportError(error, context = {}) {
 	const errorObj = error instanceof Error ? error : new Error(String(error));
 	console.error("[NovaAI Error]", {
@@ -154,7 +154,14 @@ var Route$2 = createRootRouteWithContext()({
 function RootShell({ children }) {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("html", {
 		lang: "en",
-		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("head", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(HeadContent, {}) }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("body", { children: [children, /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Scripts, {})] })]
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("head", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(HeadContent, {}) }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("body", {
+			className: "m-0 p-0",
+			style: {
+				margin: 0,
+				padding: 0
+			},
+			children: [children, /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Scripts, {})]
+		})]
 	});
 }
 function RootComponent() {
@@ -164,9 +171,9 @@ function RootComponent() {
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Outlet, {})
 	});
 }
-var $$splitComponentImporter$1 = () => import("./aichat-DU81n6-i.mjs");
+var $$splitComponentImporter$1 = () => import("./aichat-BJgY1kMS.mjs");
 var Route$1 = createFileRoute("/aichat")({ component: lazyRouteComponent($$splitComponentImporter$1, "component") });
-var $$splitComponentImporter = () => import("./routes-Bxw7ZNn6.mjs");
+var $$splitComponentImporter = () => import("./routes-gL5HtTVt.mjs");
 var Route = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter, "component") });
 var AichatRoute = Route$1.update({
 	id: "/aichat",

@@ -2,12 +2,12 @@ import { a as __toESM } from "../_runtime.mjs";
 import { n as AnimatePresence, t as motion } from "../_libs/framer-motion.mjs";
 import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
 import { h as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import "./router-BDanhK4M.mjs";
+import "./router-CLeSrwHw.mjs";
 import { t as imageCompression } from "../_libs/browser-image-compression.mjs";
 import { t as Markdown } from "../_libs/react-markdown+[...].mjs";
 import { t as remarkGfm } from "../_libs/remark-gfm.mjs";
 import { t as m } from "../_libs/react-error-boundary.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/aichat-DU81n6-i.js
+//#region node_modules/.nitro/vite/services/ssr/assets/aichat-BJgY1kMS.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var API_BASE = "http://localhost:8000";
