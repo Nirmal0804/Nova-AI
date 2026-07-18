@@ -50,10 +50,10 @@ interface CompareResponse {
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const PIPELINE_STAGES = [
-  { icon: "📤", title: "Ingestion", desc: "Reading image & metadata" },
-  { icon: "⚙️", title: "Preprocessing", desc: "Rasterio / GDAL normalization" },
-  { icon: "🧠", title: "Vision Analysis", desc: "ViT / EfficientNet segmentation" },
-  { icon: "💬", title: "LLM Insight", desc: "Generating language summary" },
+  { icon: "📤", title: "Ingestion", desc: "Reading image and metadata" },
+  { icon: "⚙️", title: "Preprocessing", desc: "Standardizing image format" },
+  { icon: "🧠", title: "Vision Analysis", desc: "Identifying land patterns" },
+  { icon: "💬", title: "AI Insight", desc: "Generating expert summaries" },
 ];
 
 interface ChatMessage {
@@ -220,8 +220,8 @@ function NovaDemo() {
           <div className="nd-eyebrow">Interactive Demo</div>
           <h1>Upload a satellite image</h1>
           <p>
-            Upload any satellite or aerial image. NOVA AI will run Segformer vision analysis for land-cover
-            segmentation, then use Groq LLM to generate expert insights, risk assessment, and recommended actions.
+            Upload any satellite or aerial image. NOVA AI will analyze the image to identify land-cover
+            patterns, then generate expert insights, risk assessments, and recommended actions.
           </p>
         </div>
 
