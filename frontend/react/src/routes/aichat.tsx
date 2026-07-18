@@ -119,7 +119,7 @@ function NovaDemo() {
     try {
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("question", prompt);
+      // Removed formData.append("question", prompt) to force cheap fix
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
@@ -149,11 +149,52 @@ function NovaDemo() {
       setResult(data);
       setStatus("done");
       
-      // Inject the rich report as an assistant message
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: data.insight, isReport: true }
-      ]);
+      // Inject the rich report as an assistant message and immediately stream the follow-up answer
+      setMessages((prev) => {
+        const historySnapshot = prev.filter(m => !m.isReport).map(m => ({ role: m.role, text: m.text }));
+        
+        // --- Cheap Fix: Ask the LLM the user's actual question ---
+        setTimeout(async () => {
+          try {
+            const res = await fetch(`${API_BASE}/api/chat/stream`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question: prompt, result: data, history: historySnapshot }),
+            });
+            if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
+            
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            if (!reader) throw new Error("No readable stream");
+
+            setMessages((m) => [...m, { role: "assistant", text: "" }]);
+
+            let done = false;
+            while (!done) {
+              const { value, done: streamDone } = await reader.read();
+              done = streamDone;
+              if (value) {
+                const text = decoder.decode(value, { stream: true });
+                setMessages((m) => {
+                  const updated = [...m];
+                  const last = updated[updated.length - 1];
+                  if (last && last.role === "assistant" && !last.isReport) {
+                    updated[updated.length - 1] = { ...last, text: last.text + text };
+                  }
+                  return updated;
+                });
+              }
+            }
+          } catch (err) {
+            console.error("Follow-up chat failed", err);
+          }
+        }, 50);
+
+        return [
+          ...prev,
+          { role: "assistant", text: data.insight, isReport: true }
+        ];
+      });
       // Clear file selection after analyzing so next prompt just chats unless a new file is added
       setFile(null);
       setPreviewUrl(null);
