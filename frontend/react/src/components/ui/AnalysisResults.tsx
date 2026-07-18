@@ -51,14 +51,53 @@ export const AnalysisResults = memo(({ result, askInsight, insightLoading }: Ana
     }
   };
 
+  const rawText = result.professional_report || result.gpt_analysis || result.summary || "";
+
+  // Extract bullets securely
+  const extractBullets = (text: string) => {
+    if (!text) return ["Scene analysis completed successfully."];
+    // try capturing explicit bullets
+    const bullets = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.startsWith('-') || line.startsWith('*'))
+      .map(line => line.replace(/^[-*]\s*/, '').trim())
+      .filter(line => line.length > 5);
+
+    if (bullets.length >= 2) {
+      return bullets.slice(0, 5).map(b => b.split('.')[0] + '.');
+    }
+
+    // Fallback to sentences
+    const sentences = text.split(/[.?!]\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 15 && s.length < 150 && !s.includes('#'));
+
+    if (sentences.length > 0) {
+      return sentences.slice(0, 5).map(s => s.endsWith('.') ? s : s + '.');
+    }
+
+    return ["Observation analysis complete."];
+  };
+
+  const findings = extractBullets(rawText);
+  const textLower = rawText.toLowerCase();
+  const hasKeyword = (words: string[]) => words.some(w => textLower.includes(w));
+
+  const vegStatus = hasKeyword(['dense forest', 'agriculture', 'lush', 'vegetation']) ? 'High' : hasKeyword(['sparse', 'some vegetation', 'grass']) ? 'Medium' : 'Low';
+  const urbanStatus = hasKeyword(['residential', 'industrial', 'urban', 'buildings', 'city']) ? 'High' : hasKeyword(['road', 'infrastructure', 'suburban']) ? 'Medium' : 'Low';
+  const waterStatus = hasKeyword(['water', 'river', 'lake', 'ocean', 'sea', 'coast', 'pool']) ? 'Detected' : 'Not Detected';
+  const indStatus = hasKeyword(['industrial', 'factory', 'manufacturing', 'plant']) ? 'Detected' : 'Not Detected';
+  const envRisk = result.risk_level || (hasKeyword(['risk', 'danger', 'hazard', 'pollution', 'flood']) ? 'High' : 'Low');
+
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => { setShowMask(true); }}>
+    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => setShowMask(true)}>
       <div className="cb-report-card nova-reveal nova-in">
+
         <div className="cb-report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Earth Observation Report</h3>
-          <button 
-            className="cb-attach-btn" 
-            onClick={downloadPdf} 
+          <h3>Earth Observation Dashboard</h3>
+          <button
+            className="cb-attach-btn"
+            onClick={downloadPdf}
             disabled={isDownloading}
             style={{ fontSize: '12px', padding: '6px 12px' }}
           >
@@ -67,52 +106,111 @@ export const AnalysisResults = memo(({ result, askInsight, insightLoading }: Ana
         </div>
         <hr className="cb-divider" />
 
-        <div className="cb-report-section">
-          <h4 className="cb-section-title">Telemetry & Context</h4>
-          <div className="cb-eo-panel">
-            <div className="cb-eo-grid">
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Scene Type</span>
-                <span className="cb-eo-value">{result.scene_type || "Urban / Natural"}</span>
-              </div>
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Resolution</span>
-                <span className="cb-eo-value">{result.width && result.height ? `${result.width}x${result.height}` : "High"}</span>
-              </div>
-              <div className="cb-eo-item">
-                <span className="cb-eo-label">Projection</span>
-                <span className="cb-eo-value">{result.geo_metadata?.crs ? String(result.geo_metadata.crs) : "EPSG:4326"}</span>
-              </div>
-              <div className="cb-eo-item" style={{ gridColumn: "1 / -1" }}>
-                <span className="cb-eo-label">Primary Land Cover</span>
-                <span className="cb-eo-value" style={{ textTransform: "capitalize", color: "var(--nova-blue)" }}>{result.dominant_land_cover || "N/A"}</span>
-              </div>
-              {(result.secondary_land_cover && result.secondary_land_cover !== "none") && (
-                <div className="cb-eo-item" style={{ gridColumn: "1 / -1" }}>
-                  <span className="cb-eo-label">Secondary Features</span>
-                  <span className="cb-eo-value" style={{ textTransform: "capitalize" }}>{result.secondary_land_cover}</span>
-                </div>
-              )}
+        {/* SECTION 1 - AI SUMMARY */}
+        <div className="dashboard-section">
+          <h4 className="cb-section-title">🛰 AI Summary</h4>
+          <div className="dashboard-cards-grid">
+            <div className="dash-card">
+              <span className="dash-label">Primary Land Cover</span>
+              <span className="dash-value highlight">{result.dominant_land_cover || "N/A"}</span>
             </div>
-
-            <div className="cb-eo-flags">
-              {result.flags?.map((f, idx) => (
-                <div key={idx} className="cb-eo-match-row">
-                  <span>{f.icon} {f.label}</span>
-                  <span className="cb-eo-match-score">DETECTED</span>
-                </div>
-              ))}
+            <div className="dash-card">
+              <span className="dash-label">Secondary Land Cover</span>
+              <span className="dash-value">{result.secondary_land_cover && result.secondary_land_cover !== "none" ? result.secondary_land_cover : "None"}</span>
+            </div>
+            <div className="dash-card">
+              <span className="dash-label">Confidence</span>
+              <span className="dash-value">{(result.confidence == 'High') ? '🟢 High' : (result.confidence == 'Medium' ? '🟡 Medium' : '🔴 Low')}</span>
+            </div>
+            <div className="dash-card">
+              <span className="dash-label">Overall Status</span>
+              <span className="dash-value">✅ {envRisk === 'High' ? 'Requires Attention' : 'Stable Urban Area'}</span>
             </div>
           </div>
         </div>
 
+        {/* SECTION 2 - KEY FINDINGS */}
+        <div className="dashboard-section">
+          <h4 className="cb-section-title">🔍 Key Findings</h4>
+          <ul className="dash-bullets">
+            {findings.map((f, i) => <li key={i}>✓ {f}</li>)}
+          </ul>
+        </div>
+
+        {/* SECTION 3 - ENVIRONMENTAL ASSESSMENT */}
+        <div className="dashboard-section">
+          <h4 className="cb-section-title">🌍 Environmental Assessment</h4>
+          <div className="env-badges-grid">
+            <div className="env-badge">
+              <span className="env-icon">🌱</span>
+              <span className="env-name">Vegetation</span>
+              <span className={`env-status status-${vegStatus.toLowerCase()}`}>{vegStatus}</span>
+            </div>
+            <div className="env-badge">
+              <span className="env-icon">🏙</span>
+              <span className="env-name">Urban Density</span>
+              <span className={`env-status status-${urbanStatus.toLowerCase()}`}>{urbanStatus}</span>
+            </div>
+            <div className="env-badge">
+              <span className="env-icon">💧</span>
+              <span className="env-name">Water Presence</span>
+              <span className={`env-status status-${waterStatus.toLowerCase().replace(' ', '-')}`}>{waterStatus}</span>
+            </div>
+            <div className="env-badge">
+              <span className="env-icon">🏭</span>
+              <span className="env-name">Industrial Activity</span>
+              <span className={`env-status status-${indStatus.toLowerCase().replace(' ', '-')}`}>{indStatus}</span>
+            </div>
+            <div className="env-badge">
+              <span className="env-icon">⚠</span>
+              <span className="env-name">Environmental Risk</span>
+              <span className={`env-status status-${envRisk.toLowerCase()}`}>{envRisk}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 4 - QUICK AI QUESTIONS */}
+        <div className="dashboard-section">
+          <h4 className="cb-section-title">💬 Quick AI Questions</h4>
+          <div className="cb-insights-grid">
+            <button disabled={insightLoading} onClick={() => askInsight("Explain the environment")}>🌱 Explain the environment</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Analyze infrastructure")}>🏗 Analyze infrastructure</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Assess possible risks")}>⚠ Assess possible risks</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Future land use")}>📈 Future land use</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Explain like I'm 10")}>🧠 Explain like I'm 10</button>
+          </div>
+          {insightLoading && <div className="cb-insight-loading"><div className="cb-dot small pulse" /> Generating Insight...</div>}
+        </div>
+
+        <hr className="cb-divider" />
+
+        {/* KEEP: Telemetry & Context */}
+        <div className="dashboard-section">
+          <h4 className="cb-section-title">📡 Telemetry & Context</h4>
+          <div className="cb-eo-panel">
+            <div className="cb-eo-grid">
+              <div className="cb-eo-item">
+                <span className="cb-eo-label">Resolution</span>
+                <span className="cb-eo-value">High</span>
+              </div>
+              <div className="cb-eo-item">
+                <span className="cb-eo-label">Projection</span>
+                <span className="cb-eo-value">EPSG:4326</span>
+              </div>
+              <div className="cb-eo-item">
+                <span className="cb-eo-label">Processing Time</span>
+                <span className="cb-eo-value">{result.metadata?.processing_time_ms || 0} ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* KEEP: Mask Image */}
         {result.mask_image && (
-          <div className="cb-report-section">
-            <h4 className="cb-section-title">Segmentation Map</h4>
+          <div className="dashboard-section">
+            <h4 className="cb-section-title">🗺 Segmentation Map</h4>
             <div className="cb-report-image-container">
-              {/* Note: This assumes previewUrl is accessible or you pass base image as prop. 
-                  If base image is not passed, mask is just displayed. */}
-              {showMask && <img src={`data:image/png;base64,${result.mask_image}`} alt="Mask Overlay" className="cb-mask-overlay" style={{ opacity: 1, mixBlendMode: 'normal' }} />}
+              {showMask && <img src={`data:image/png;base64,${result.mask_image}`} alt="Mask" className="cb-mask-overlay" />}
               <button className="cb-mask-toggle" onClick={() => setShowMask(!showMask)}>
                 {showMask ? "Hide SegMap" : "Show SegMap"}
               </button>
@@ -120,27 +218,27 @@ export const AnalysisResults = memo(({ result, askInsight, insightLoading }: Ana
           </div>
         )}
 
-
-
-        {/* QUICK EO INSIGHTS PANEL */}
-        <div className="cb-report-section">
-          <h4 className="cb-section-title">Quick EO Insights</h4>
-          <div className="cb-insights-grid">
-            <button disabled={insightLoading} onClick={() => askInsight("What does this landscape primarily represent?")}>🌱 What does this landscape primarily represent?</button>
-            <button disabled={insightLoading} onClick={() => askInsight("What environmental characteristics can be inferred?")}>🌿 What environmental characteristics can be inferred?</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Is there evidence of residential or industrial development?")}>🏗 Is there evidence of residential or industrial development?</button>
-            <button disabled={insightLoading} onClick={() => askInsight("Are there any visible environmental risks?")}>⚠ Are there any visible environmental risks?</button>
-            <button disabled={insightLoading} onClick={() => askInsight("What are the key observations?")}>🎯 What are the key observations?</button>
+        {/* KEEP: LC Breakdown Chart if it was previously there, actually the previous one didn't have it locally, but it might be passed via classes */}
+        {result.classes && result.classes.length > 0 && (
+          <div className="dashboard-section">
+            <h4 className="cb-section-title">📊 Land Cover Breakdown</h4>
+            <div className="cb-eo-flags">
+              {result.classes.map((c, idx) => (
+                <div key={idx} className="cb-eo-match-row">
+                  <span style={{ color: c.color }}>■ {c.label}</span>
+                  <span className="cb-eo-match-score">{c.pct.toFixed(1)}%</span>
+                </div>
+              ))}
+            </div>
           </div>
-          {insightLoading && <div className="cb-insight-loading"><div className="cb-dot small pulse" /> Generating Insight...</div>}
-        </div>
+        )}
 
-        <div className="cb-report-section">
+        <div className="dashboard-section" style={{ marginTop: '20px' }}>
           <details className="cb-raw-json">
             <summary onClick={(e) => { e.preventDefault(); setShowRaw(!showRaw); }}>
-              {showRaw ? "Hide Raw JSON" : "Show Raw JSON"}
+              {showRaw ? "Hide Raw Data" : "Show Technical Metadata"}
             </summary>
-            {showRaw && <pre>{JSON.stringify(result, null, 2)}</pre>}
+            {showRaw && <pre>{JSON.stringify(result.metadata || result, null, 2)}</pre>}
           </details>
         </div>
 
