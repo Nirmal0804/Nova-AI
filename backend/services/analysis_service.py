@@ -45,6 +45,8 @@ from backend.schemas.analysis import (
     AnalysisFlag,
 )
 from backend.utils.logger import logger
+from backend.report.schemas import ReportRequest, ReportResponse
+from backend.report.report_service import report_service
 
 
 class AnalysisService:
@@ -379,6 +381,13 @@ class AnalysisService:
                 level="info",
             ))
         return flags
+
+    async def generate_professional_report(self, request: ReportRequest) -> ReportResponse:
+        """
+        Takes raw EO findings and GPT-OSS analysis and delegates them 
+        to the ReportService to produce a structured, professional markdown report via Claude.
+        """
+        return await report_service.generate_professional_report(request)
 
 
 # ---------------------------------------------------------------------------
