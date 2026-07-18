@@ -333,6 +333,38 @@ function NovaDemo() {
                             </div>
                           )}
                           
+                          {/* EO Analysis Panel */}
+                          {result.classes && result.classes.length > 0 && (
+                            <div className="cb-report-section">
+                              <h4 className="cb-section-title">EO Context Analysis</h4>
+                              <div className="cb-eo-panel">
+                                <div className="cb-eo-grid">
+                                  <div className="cb-eo-item">
+                                    <span className="cb-eo-label">Dominant Cover</span>
+                                    <span className="cb-eo-value">{result.classes[0]?.label || "N/A"}</span>
+                                  </div>
+                                  <div className="cb-eo-item">
+                                    <span className="cb-eo-label">Secondary</span>
+                                    <span className="cb-eo-value">{result.classes[1]?.label || "N/A"}</span>
+                                  </div>
+                                  <div className="cb-eo-item">
+                                    <span className="cb-eo-label">Confidence</span>
+                                    <span className="cb-eo-value">{result.classes[0]?.pct > 65 ? "High" : result.classes[0]?.pct > 40 ? "Medium" : "Low"}</span>
+                                  </div>
+                                </div>
+                                <div className="cb-eo-matches">
+                                  <div className="cb-eo-label" style={{marginBottom: "10px"}}>Top Similarity Matches</div>
+                                  {result.classes.slice(0, 4).map(c => (
+                                    <div key={c.label} className="cb-eo-match-row">
+                                      <span>{c.label}</span>
+                                      <span className="cb-eo-match-score">{(c.pct / 100).toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Land Cover Classes */}
                           {result.classes && result.classes.length > 0 && (
                             <div className="cb-report-section">
@@ -574,6 +606,16 @@ const css = `
 .cb-report-section { margin-bottom: 24px; }
 .cb-report-section:last-child { margin-bottom: 0; }
 .cb-section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; font-family: 'Space Mono', monospace; }
+
+/* EO PANEL */
+.cb-eo-panel { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+.cb-eo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.cb-eo-item { display: flex; flex-direction: column; gap: 6px; }
+.cb-eo-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: 'Space Mono', monospace; }
+.cb-eo-value { font-size: 0.95rem; font-weight: 600; color: var(--aurora); }
+.cb-eo-match-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+.cb-eo-match-row:last-child { border-bottom: none; }
+.cb-eo-match-score { font-family: 'Space Mono', monospace; color: var(--aurora); font-weight: 600; }
 
 .cb-classes { display: flex; flex-direction: column; gap: 8px; }
 .cb-class-row { display: grid; grid-template-columns: 140px 1fr 50px; align-items: center; gap: 12px; font-size: 0.85rem; }
