@@ -1,8 +1,8 @@
 import { a as __toESM } from "../_runtime.mjs";
 import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
 import { h as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import "./router-B2Fa6HAd.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-DEHGKCt8.js
+import "./router-uRy6lj2w.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-cYM6KutI.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var problems = [
