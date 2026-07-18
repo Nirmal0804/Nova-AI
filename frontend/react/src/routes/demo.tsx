@@ -158,15 +158,29 @@ function NovaDemo() {
       formData.append("image", file);
       formData.append("question", initialQuestion);
 
-      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { method: "POST", body: formData }).then(
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
+      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { 
+        method: "POST", 
+        body: formData,
+        signal: controller.signal
+      }).then(
         async (res) => {
+          clearTimeout(timeoutId);
           if (!res.ok) {
-            const body = await res.json().catch(() => null);
-            throw new Error(body?.detail ?? `Analysis failed (${res.status})`);
+            if (res.status === 413) throw new Error("Image too large for the backend to process.");
+            if (res.status === 415) throw new Error("Unsupported image format.");
+            if (res.status === 400 || res.status === 422) throw new Error("Invalid image or request.");
+            if (res.status >= 500) throw new Error("The backend encountered an unexpected error.");
+            throw new Error(`Analysis failed due to an unknown error (${res.status}).`);
           }
           return (await res.json()) as AnalysisResult;
-        },
-      );
+        }
+      ).catch(err => {
+        clearTimeout(timeoutId);
+        throw err;
+      });
 
       const [data] = await Promise.all([fetchAnalysis, minDuration]);
       setResult(data);
@@ -175,14 +189,21 @@ function NovaDemo() {
         { role: "user", text: initialQuestion },
         { role: "assistant", text: data.insight }
       ]);
-    } catch (err) {
+    } catch (err: any) {
       setStatus("idle");
       setStageIndex(-1);
-      setError(
-        err instanceof Error
-          ? `${err.message} — is the backend running at ${API_BASE}?`
-          : "Something went wrong talking to the backend.",
-      );
+      
+      let friendlyMsg = "Something went wrong while analyzing the image.";
+      
+      if (err.name === "AbortError") {
+        friendlyMsg = "The request timed out. The server took too long to respond.";
+      } else if (err instanceof TypeError) {
+        friendlyMsg = "Network failure. Could not connect to the backend server.";
+      } else if (err instanceof Error) {
+        friendlyMsg = err.message;
+      }
+      
+      setError(friendlyMsg);
     }
   }, [file]);
 
