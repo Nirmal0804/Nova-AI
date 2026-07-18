@@ -1,202 +1,670 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import "./landing.css";
+import { useEffect, useRef } from "react";
+import "./index.css";
 
 export const Route = createFileRoute("/")({
-  component: LandingPage,
+  component: NovaLanding,
 });
 
-const landCoverTypes = [
-  { name: "Forest", color: "#10b981" },
-  { name: "Vegetation", color: "#10b981" },
-  { name: "Agriculture", color: "#84cc16" },
-  { name: "Annual Crop", color: "#84cc16" },
-  { name: "Residential", color: "#a855f7" },
-  { name: "Industrial", color: "#f43f5e" },
-  { name: "Water", color: "#0ea5e9" },
-  { name: "River", color: "#38bdf8" },
-  { name: "Water Body", color: "#0ea5e9" },
-  { name: "Desert", color: "#eab308" },
-  { name: "Flood", color: "#0ea5e9" },
+const problems = [
+  { icon: "🔍", title: "Manual Interpretation", desc: "Trained analysts spend hours manually reviewing satellite images to extract basic land-use patterns — a bottleneck that doesn't scale." },
+  { icon: "⏱️", title: "Slow Disaster Analysis", desc: "When floods or wildfires strike, response teams need imagery-based intelligence in minutes. Current pipelines take days." },
+  { icon: "🧩", title: "Fragmented EO Insights", desc: "Spectral bands, NDVI indices, and radar data live in separate tools — no single system converts them into unified, readable insights." },
+  { icon: "📡", title: "Inaccessible for Non-Experts", desc: "Complex satellite data formats and GIS tooling lock out environmental agencies, planners, and first responders who need answers fast." },
 ];
 
-function LandingPage() {
-  const scrollToWorks = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    document.getElementById("works")?.scrollIntoView({ behavior: "smooth" });
-  };
+const flow = [
+  { n: "01", icon: "📤", title: "Image Ingestion", desc: "User uploads satellite image or connects to ISRO EO data streams via API" },
+  { n: "02", icon: "⚙️", title: "Preprocessing", desc: "Rasterio & GDAL normalize imagery; OpenCV handles spatial calibration" },
+  { n: "03", icon: "🧠", title: "Vision Analysis", desc: "ViT / EfficientNet segment land patterns — water, vegetation, urban cover" },
+  { n: "04", icon: "💬", title: "LLM Insight", desc: "GPT-OSS converts vision outputs into plain-language reports and answers questions" },
+];
+
+const tech = [
+  { label: "Computer Vision", title: "Deep Learning Models", tags: ["PyTorch", "ViT", "ResNet", "EfficientNet"] },
+  { label: "Image Processing", title: "Satellite Data Pipeline", tags: ["OpenCV", "Pillow", "Rasterio", "GDAL"] },
+  { label: "Language Model", title: "Natural Language Intelligence", tags: ["GPT-OSS API", "LLaMA", "Mistral"], aurora: true },
+  { label: "Backend", title: "API & Server", tags: ["FastAPI", "Flask", "Python"] },
+  { label: "Frontend & Visualization", title: "Interactive Dashboard", tags: ["React", "Streamlit", "Plotly", "Matplotlib"] },
+  { label: "Data Sources", title: "EO Platforms", tags: ["NASA Earthdata", "Sentinel Hub", "USGS Explorer"] },
+];
+
+
+
+
+
+const marquee = ["PyTorch", "ViT", "GPT-OSS", "LLaMA", "OpenCV", "Rasterio", "GDAL", "FastAPI", "Sentinel Hub", "NASA Earthdata", "ISRO EO", "Plotly", "EfficientNet", "Mistral"];
+
+function NovaLanding() {
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Starfield
+    const container = document.getElementById("stars");
+    if (container && container.childElementCount === 0) {
+      for (let i = 0; i < 220; i++) {
+        const star = document.createElement("div");
+        star.className = "nova-star";
+        const size = Math.random() * 2.5 + 0.5;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.setProperty("--o", `${Math.random() * 0.7 + 0.1}`);
+        star.style.setProperty("--d", `${Math.random() * 4 + 2}s`);
+        container.appendChild(star);
+      }
+    }
+
+    // Scroll progress
+    const onScroll = () => {
+      const h = document.documentElement;
+      const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+      if (progressRef.current) progressRef.current.style.width = `${pct}%`;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+
+    // Reveal on scroll
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).classList.add("nova-in");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll(".nova-reveal").forEach((el) => io.observe(el));
+
+    // Cursor spotlight on cards
+    const onMove = (e: MouseEvent) => {
+      document.querySelectorAll<HTMLElement>(".nova-spot").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+        el.style.setProperty("--my", `${e.clientY - r.top}px`);
+      });
+    };
+    window.addEventListener("mousemove", onMove);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("mousemove", onMove);
+      io.disconnect();
+    };
+  }, []);
 
   return (
-    <div className="landing-root">
-      {/* 1. Hero */}
-      <section className="landing-hero">
-        <div className="landing-container">
-          <h1>
-            Turn a satellite image into a<br />
-            <span className="landing-accent">professional Earth Observation</span><br />
-            analyst report.
-          </h1>
-          <p className="landing-hero-sub">
-            Powered by RemoteCLIP ViT-L-14 zero-shot classification and LLM reasoning, with declared confidence and limitations on every result.
-          </p>
-          <div className="landing-cta-group">
-            <Link to="/aichat" className="landing-btn landing-btn-primary">
-              Try Now
-            </Link>
-            <a href="#works" onClick={scrollToWorks} className="landing-btn landing-btn-secondary">
-              See how it works
-            </a>
+    <div className="nova-root">
+
+      <div className="nova-progress" ref={progressRef} />
+
+      <div id="stars" />
+      <div className="nova-grid-overlay" />
+      <div className="nova-grain" />
+
+      <nav className="nova-nav">
+        <div className="nova-logo">
+          <div className="nova-dot" />
+          NOVA AI
+          <span className="nova-live">● LIVE</span>
+        </div>
+        <ul className="nova-links">
+          <li><a href="#problem">Problem</a></li>
+          <li><a href="#solution">Solution</a></li>
+          <li><Link to="/aichat">Try Demo</Link></li>
+        </ul>
+        <div className="nova-tag">SIH25170</div>
+      </nav>
+
+      <section id="hero">
+        <div className="hero-orb orb1" />
+        <div className="hero-orb orb2" />
+        <div className="hero-orb orb3" />
+        <div className="hero-inner">
+          <div className="nova-reveal">
+            <div className="hero-eyebrow">Where Space Meets AI</div>
+            <h1>
+              <span className="nebula-text">Multimodal AI</span>
+              <br />
+              for Earth
+              <br />
+              <span className="accent">
+                Observation
+                <span className="accent-cursor" />
+              </span>
+            </h1>
+            <p className="hero-sub">
+              NOVA AI enhances GPT-OSS with vision capabilities built for ISRO Earth Observation
+              data — turning raw satellite imagery into clear, actionable intelligence.
+            </p>
+            <div className="hero-cta">
+              <Link to="/aichat" className="btn btn-primary">
+                Launch Demo
+              </Link>
+            </div>
           </div>
+
+          <div className="hero-visual nova-reveal">
+            <svg className="orbit-svg" viewBox="0 0 520 520" aria-hidden>
+              <defs>
+                <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#6c47ff" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#6c47ff" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="260" cy="260" r="240" fill="url(#glow)" />
+              <circle cx="260" cy="260" r="240" fill="none" stroke="rgba(120,100,255,0.08)" strokeDasharray="4 6" />
+              <circle cx="260" cy="260" r="185" fill="none" stroke="rgba(108,71,255,0.18)" />
+              <circle cx="260" cy="260" r="130" fill="none" stroke="rgba(0,229,200,0.22)" />
+            </svg>
+            <div className="orbit-ring r3">
+              <span className="sat">🛰</span>
+            </div>
+            <div className="orbit-ring r2">
+              <span className="sat">📡</span>
+            </div>
+            <div className="orbit-ring r1">
+              <span className="sat">✦</span>
+            </div>
+            <div className="globe-core">
+              <span className="globe-emoji">🌍</span>
+              <div className="scan-line" />
+            </div>
+            <div className="ping ping1" />
+            <div className="ping ping2" />
+            <div className="ping ping3" />
+          </div>
+        </div>
+
+        <div className="scroll-hint">
+          <span>SCROLL</span>
+          <div className="scroll-bar"><div /></div>
         </div>
       </section>
 
-      {/* 2. How NovaAI Works */}
-      <section id="works" className="landing-works">
-        <div className="landing-container">
-          <h2>How NovaAI Works</h2>
-          <div className="landing-pipeline">
-            <div className="landing-stage">
-              <span className="landing-stage-num">01</span>
-              <h3>Image Validation</h3>
-              <p className="landing-stage-desc">Format, size, and dimension checks; conversion to RGB</p>
-            </div>
-            <div className="landing-stage">
-              <span className="landing-stage-num">02</span>
-              <h3>RemoteCLIP ViT-L-14</h3>
-              <p className="landing-stage-desc">Encodes the image and scores it against EO text prompts, zero-shot, no training required</p>
-            </div>
-            <div className="landing-stage">
-              <span className="landing-stage-num">03</span>
-              <h3>EO Interpreter</h3>
-              <p className="landing-stage-desc">Deterministic rule engine: filters noise, maps tags to canonical land-cover categories, ranks by similarity, assigns a confidence band</p>
-            </div>
-            <div className="landing-stage">
-              <span className="landing-stage-num">04</span>
-              <h3>Prompt Builder</h3>
-              <p className="landing-stage-desc">Constructs a constrained analyst prompt from structured EO context only; raw model internals are never passed through</p>
-            </div>
-            <div className="landing-stage">
-              <span className="landing-stage-num">05</span>
-              <h3>LLM Report</h3>
-              <p className="landing-stage-desc">Generates a formal Earth Observation analysis report</p>
-            </div>
-          </div>
-          <p className="landing-emphasis">
-            The language model never sees the image — it receives only validated, structured findings, which is what prevents fabricated observations.
-          </p>
+      <div className="marquee">
+        <div className="marquee-track">
+          {[...marquee, ...marquee].map((m, i) => (
+            <span key={i} className="marquee-item">◆ {m}</span>
+          ))}
         </div>
-      </section>
+      </div>
 
-      {/* 3. Supported Land Cover Types */}
-      <section className="landing-categories">
-        <div className="landing-container">
-          <h2>Supported Land Cover Types</h2>
-          <div className="landing-grid">
-            {landCoverTypes.map((type) => (
-              <div key={type.name} className="landing-category-card">
-                <div className="landing-color-dot" style={{ backgroundColor: type.color }} />
-                <span>{type.name}</span>
+      <div className="divider" />
+
+      <section id="problem">
+        <div className="container">
+          <div className="section-header nova-reveal">
+            <div className="section-eyebrow">The Challenge</div>
+            <h2>Why satellite data stays dark</h2>
+            <p className="section-sub">
+              Earth Observation generates petabytes of imagery. Without AI, most of it goes unread
+              — and disasters go undetected.
+            </p>
+          </div>
+          <div className="problem-grid">
+            {problems.map((p, i) => (
+              <div key={p.title} className="problem-card nova-spot nova-reveal" style={{ transitionDelay: `${i * 60}ms` }}>
+                <div className="prob-icon">{p.icon}</div>
+                <div className="prob-title">{p.title}</div>
+                <div className="prob-desc">{p.desc}</div>
               </div>
             ))}
           </div>
-          <p className="landing-zero-shot-note">
-            Classification is zero-shot, so new categories are added by defining a text label — no retraining or labelled data needed.
-          </p>
         </div>
       </section>
 
-      {/* 4. Sample Output */}
-      <section className="landing-sample">
-        <div className="landing-container">
-          <h2>Analysis & Limitations</h2>
-          <div className="landing-sample-flex">
-            <div className="landing-sample-card">
-              <div className="sample-header">
-                <div>
-                  <h3>Forest Scene Analysis</h3>
-                  <p className="landing-hero-sub" style={{ margin: 0, fontSize: "0.9rem" }}>
-                    Dominant: Forest / Secondary: Water
-                  </p>
+      <div className="divider" />
+
+      <section id="solution">
+        <div className="container">
+          <div className="section-header nova-reveal">
+            <div className="section-eyebrow">How NOVA AI Works</div>
+            <h2>From raw image to clear insight</h2>
+            <p className="section-sub">
+              A four-stage pipeline that combines computer vision and large language models to
+              translate satellite imagery into human-readable intelligence.
+            </p>
+          </div>
+          <div className="flow">
+            {flow.map((s, i) => (
+              <div key={s.n} className="flow-item nova-reveal" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div className="flow-step nova-spot">
+                  <div className="step-num">{s.n}</div>
+                  <div className="step-icon">{s.icon}</div>
+                  <div className="step-title">{s.title}</div>
+                  <div className="step-desc">{s.desc}</div>
                 </div>
-                <div className="sample-badge">Confidence: High</div>
+                {i < flow.length - 1 && <div className="flow-arrow">→</div>}
               </div>
-              
-              <div className="sample-bar">
-                <div className="sample-bar-segment" style={{ width: "70%", backgroundColor: "#10b981" }} title="Forest: 70%" />
-                <div className="sample-bar-segment" style={{ width: "20%", backgroundColor: "#0ea5e9" }} title="Water: 20%" />
-                <div className="sample-bar-segment" style={{ width: "10%", backgroundColor: "#333" }} title="Other: 10%" />
-              </div>
-
-              <div className="sample-text">
-                <p>
-                  The provided satellite imagery is dominated by dense, unbroken forest canopy (70%), indicative of a mature woodland ecosystem. The spectral signature strongly aligns with active vegetation.
-                </p>
-                <p>
-                  A secondary land cover of water (20%) is detected, likely representing a river or lake intersecting the forested region. The clean division between these areas suggests natural geographical boundaries without significant human intervention or recent disruption.
-                </p>
-              </div>
-
-              <div className="sample-meta">
-                <span>Vision: RemoteCLIP ViT-L-14</span>
-                <span>LLM: GPT-4o-mini</span>
-                <span>Processed in 2.4s</span>
-              </div>
-            </div>
-
-            <div className="landing-limitations">
-              <h3>System Limitations</h3>
-              <p style={{ color: "var(--muted)", marginBottom: "20px", fontSize: "0.9rem" }}>
-                The system states what it cannot do on every response to ensure analytical integrity:
-              </p>
-              <ul>
-                <li>Zero-shot semantic interpretation — no fine-tuning on EO labels</li>
-                <li>No pixel-level segmentation or object boundary detection</li>
-                <li>No object counting or instance detection</li>
-                <li>No temporal or change-detection analysis</li>
-                <li>Based on image-text similarity, not spectral analysis</li>
-                <li>May degrade on atypical viewpoints, cloud cover, or low resolution</li>
-              </ul>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* 5. Technologies */}
-      <section className="landing-tech">
-        <div className="landing-container">
-          <h2>Technologies</h2>
-          <div className="landing-tech-grid">
-            <div className="landing-tech-group">
-              <div className="landing-tech-label">Vision</div>
-              <div className="landing-tech-list">RemoteCLIP ViT-L-14<br/>OpenCLIP<br/>PyTorch<br/>Pillow</div>
-            </div>
-            <div className="landing-tech-group">
-              <div className="landing-tech-label">Backend</div>
-              <div className="landing-tech-list">FastAPI<br/>Pydantic v2<br/>Uvicorn<br/>Tenacity</div>
-            </div>
-            <div className="landing-tech-group">
-              <div className="landing-tech-label">LLM</div>
-              <div className="landing-tech-list">OpenRouter<br/><span style={{ fontSize: "0.85rem", color: "var(--dim)" }}>(provider-abstracted — swappable for a local model)</span></div>
-            </div>
-            <div className="landing-tech-group">
-              <div className="landing-tech-label">Frontend</div>
-              <div className="landing-tech-list">React 18<br/>Vite<br/>TanStack Router</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* 6. Closing CTA */}
-      <section className="landing-closing">
-        <div className="landing-container">
-          <Link to="/aichat" className="landing-btn landing-btn-primary" style={{ fontSize: "1.2rem", padding: "18px 40px" }}>
-            Try Now
-          </Link>
-          <p className="landing-closing-copy">
-            Start analyzing satellite imagery instantly. No setup required.
-          </p>
-        </div>
-      </section>
 
+      <footer>
+        <span>NOVA AI</span> · Team Yakuzas · SIH25170 · Where the Space Meets AI
+      </footer>
     </div>
   );
 }
+
+const css = `
+.nova-root {
+  --void: #03030a;
+  --deep: #080818;
+  --surface: #0d0d24;
+  --card: #11112e;
+  --border: rgba(120, 100, 255, 0.18);
+  --nebula: #6c47ff;
+  --nebula-glow: rgba(108, 71, 255, 0.35);
+  --aurora: #00e5c8;
+  --aurora-glow: rgba(0, 229, 200, 0.25);
+  --star: #f0edff;
+  --muted: rgba(240, 237, 255, 0.55);
+  --dim: rgba(240, 237, 255, 0.28);
+  --danger: #ff4e6a;
+  --green: #00e5a0;
+  background: var(--void);
+  color: var(--star);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+.nova-root * { box-sizing: border-box; }
+.nova-root h1, .nova-root h2, .nova-root p, .nova-root ul { margin: 0; padding: 0; }
+.nova-root ul { list-style: none; }
+html { scroll-behavior: smooth; }
+
+/* progress bar */
+.nova-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0%;
+  background: linear-gradient(90deg, var(--nebula), var(--aurora));
+  z-index: 200; box-shadow: 0 0 12px var(--aurora-glow);
+  transition: width 0.05s linear;
+}
+
+/* starfield */
+#stars {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 80% 10%, rgba(108,71,255,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(0,229,200,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 50% 0%, #1a0a3a 0%, var(--void) 70%);
+}
+.nova-star {
+  position: absolute; border-radius: 50%; background: white;
+  animation: nova-tw var(--d, 3s) ease-in-out infinite alternate;
+  opacity: var(--o, 0.6);
+  box-shadow: 0 0 4px rgba(255,255,255,0.5);
+}
+@keyframes nova-tw {
+  from { opacity: var(--o); transform: scale(1); }
+  to { opacity: calc(var(--o) * 0.15); transform: scale(0.7); }
+}
+
+/* grid + grain overlays */
+.nova-grid-overlay {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(120,100,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,100,255,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 90%);
+}
+.nova-grain {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.06;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* nav */
+.nova-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 16px 40px; display: flex; align-items: center; justify-content: space-between;
+  background: rgba(3, 3, 10, 0.65); backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+}
+.nova-logo {
+  font-family: 'Space Mono', monospace; font-size: 1.05rem; font-weight: 700;
+  color: var(--aurora); letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px;
+}
+.nova-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--aurora);
+  box-shadow: 0 0 12px var(--aurora); animation: nova-pulse 2s ease-in-out infinite;
+}
+.nova-live {
+  font-size: 0.6rem; color: var(--danger); letter-spacing: 0.2em; margin-left: 6px;
+  animation: nova-blink 1.6s ease-in-out infinite;
+}
+@keyframes nova-blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes nova-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:0.6} }
+.nova-links { display: flex; gap: 30px; }
+.nova-links a {
+  color: var(--muted); text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em;
+  position: relative; transition: color 0.2s;
+}
+.nova-links a::after {
+  content: ''; position: absolute; left: 0; bottom: -6px; width: 0; height: 1px;
+  background: var(--aurora); transition: width 0.25s;
+}
+.nova-links a:hover { color: var(--star); }
+.nova-links a:hover::after { width: 100%; }
+.nova-tag {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--nebula);
+  border: 1px solid var(--nebula); padding: 4px 10px; border-radius: 20px;
+  letter-spacing: 0.08em; box-shadow: inset 0 0 12px rgba(108,71,255,0.15);
+}
+
+/* sections */
+.nova-root section { position: relative; z-index: 2; }
+.container { max-width: 1140px; margin: 0 auto; padding: 0 40px; }
+
+/* hero */
+#hero {
+  min-height: 100vh; display: flex; align-items: center;
+  padding: 120px 40px 80px; position: relative; overflow: hidden;
+}
+.hero-orb { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; }
+.orb1 { width: 620px; height: 620px; top: -120px; right: -160px; background: rgba(108,71,255,0.22); animation: nova-drift 18s ease-in-out infinite alternate; }
+.orb2 { width: 420px; height: 420px; bottom: -120px; left: -120px; background: rgba(0,229,200,0.14); animation: nova-drift 22s ease-in-out infinite alternate-reverse; }
+.orb3 { width: 300px; height: 300px; top: 40%; left: 45%; background: rgba(255,78,106,0.06); animation: nova-drift 26s ease-in-out infinite alternate; }
+@keyframes nova-drift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(40px,-30px) scale(1.1); }
+}
+.hero-inner {
+  max-width: 1140px; margin: 0 auto; width: 100%;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+}
+.hero-eyebrow {
+  font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--aurora);
+  letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 22px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-eyebrow::before { content: ''; width: 34px; height: 1px; background: var(--aurora); }
+.nova-root h1 {
+  font-size: clamp(2.8rem, 5vw, 4.3rem); font-weight: 700; line-height: 1.05;
+  letter-spacing: -0.02em; margin-bottom: 24px;
+}
+.nova-root h1 .accent { color: var(--aurora); position: relative; }
+.accent-cursor {
+  display: inline-block; width: 3px; height: 0.9em; background: var(--aurora);
+  margin-left: 6px; vertical-align: middle; animation: nova-blink 1s steps(2) infinite;
+  box-shadow: 0 0 12px var(--aurora);
+}
+.nebula-text {
+  background: linear-gradient(135deg, var(--nebula) 0%, var(--aurora) 50%, var(--nebula) 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  animation: nova-shine 6s linear infinite;
+}
+@keyframes nova-shine { to { background-position: 200% 0; } }
+.nova-root .hero-sub { color: var(--muted); font-size: 1.05rem; max-width: 460px; margin-bottom: 36px; }
+.hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn {
+  padding: 13px 28px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem; font-weight: 600; letter-spacing: 0.03em; cursor: pointer;
+  border: none; text-decoration: none; transition: all 0.25s; display: inline-block;
+  position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--nebula), #8867ff); color: white;
+  box-shadow: 0 0 30px var(--nebula-glow), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-primary::after {
+  content: ''; position: absolute; inset: 0; background: linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.25) 50%,transparent 70%);
+  transform: translateX(-100%); transition: transform 0.6s;
+}
+.btn-primary:hover::after { transform: translateX(100%); }
+.btn-primary:hover { box-shadow: 0 0 50px var(--nebula-glow); transform: translateY(-2px); }
+.btn-ghost { background: rgba(255,255,255,0.02); color: var(--star); border: 1px solid var(--border); backdrop-filter: blur(10px); }
+.btn-ghost:hover { border-color: var(--aurora); color: var(--aurora); box-shadow: 0 0 24px rgba(0,229,200,0.2); }
+
+.hero-stats {
+  margin-top: 42px; display: grid; grid-template-columns: repeat(4,1fr); gap: 14px;
+  padding-top: 26px; border-top: 1px solid var(--border);
+}
+.hero-stat .hs-v {
+  font-family: 'Space Mono', monospace; font-size: 1.4rem; color: var(--star);
+  background: linear-gradient(135deg, var(--star), var(--aurora));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-stat .hs-l { font-size: 0.7rem; color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 4px; font-family:'Space Mono',monospace; }
+
+/* satellite visual */
+.hero-visual { display: flex; align-items: center; justify-content: center; position: relative; height: 520px; }
+.orbit-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.orbit-ring {
+  position: absolute; border-radius: 50%; border: 1px solid var(--border);
+  animation: nova-spin var(--spd, 20s) linear infinite;
+}
+.orbit-ring .sat {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  font-size: 1.2rem; filter: drop-shadow(0 0 8px var(--aurora));
+}
+@keyframes nova-spin { to { transform: rotate(360deg); } }
+.r1 { width: 260px; height: 260px; --spd: 14s; }
+.r2 { width: 370px; height: 370px; --spd: 22s; border-color: rgba(108,71,255,0.22); }
+.r2 .sat { filter: drop-shadow(0 0 8px var(--nebula)); }
+.r3 { width: 480px; height: 480px; --spd: 34s; border-style: dashed; border-color: rgba(120,100,255,0.12); }
+.r3 .sat { filter: drop-shadow(0 0 8px var(--danger)); }
+.globe-core {
+  width: 160px; height: 160px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a3a8c, #0d0d24 55%, #03030a);
+  box-shadow: 0 0 80px rgba(108,71,255,0.5), inset 0 0 50px rgba(0,229,200,0.15);
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.globe-emoji { font-size: 3.8rem; filter: drop-shadow(0 0 12px rgba(0,229,200,0.4)); }
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--aurora), transparent);
+  animation: nova-scan 3s linear infinite; box-shadow: 0 0 12px var(--aurora);
+}
+@keyframes nova-scan { 0%{top:0} 100%{top:100%} }
+.ping {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--aurora); box-shadow: 0 0 12px var(--aurora);
+}
+.ping::after {
+  content:''; position:absolute; inset:-4px; border-radius:50%;
+  border: 1px solid var(--aurora); animation: nova-ping 2.2s ease-out infinite;
+}
+@keyframes nova-ping { 0%{transform:scale(1);opacity:1} 100%{transform:scale(4);opacity:0} }
+.ping1 { top: 22%; left: 30%; }
+.ping2 { top: 68%; right: 24%; background: var(--nebula); box-shadow:0 0 12px var(--nebula); animation-delay: 0.6s; }
+.ping2::after { border-color: var(--nebula); }
+.ping3 { bottom: 18%; left: 40%; background: var(--danger); box-shadow:0 0 12px var(--danger); animation-delay: 1.2s; }
+.ping3::after { border-color: var(--danger); }
+
+.scroll-hint {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.3em; color: var(--dim);
+}
+.scroll-bar { width: 1px; height: 40px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.scroll-bar > div { width: 100%; height: 40%; background: var(--aurora); animation: nova-slide 2s ease-in-out infinite; }
+@keyframes nova-slide { 0%{transform:translateY(-100%)} 100%{transform:translateY(250%)} }
+
+/* marquee */
+.marquee {
+  position: relative; z-index: 2; overflow: hidden;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: rgba(8,8,24,0.5); padding: 14px 0;
+  mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+}
+.marquee-track { display: flex; gap: 40px; width: max-content; animation: nova-marq 40s linear infinite; }
+.marquee-item {
+  font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 0.15em;
+  color: var(--muted); white-space: nowrap;
+}
+.marquee-item:nth-child(odd) { color: var(--aurora); }
+@keyframes nova-marq { to { transform: translateX(-50%); } }
+
+/* section header */
+.section-header { text-align: center; margin-bottom: 60px; }
+.section-eyebrow {
+  font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--aurora);
+  letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 14px;
+}
+.nova-root h2 { font-size: clamp(1.9rem, 3vw, 2.6rem); font-weight: 700; letter-spacing: -0.015em; }
+.nova-root .section-sub { color: var(--muted); margin: 14px auto 0; max-width: 540px; }
+
+/* cursor spotlight */
+.nova-spot { position: relative; }
+.nova-spot::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(240px circle at var(--mx,50%) var(--my,50%), rgba(108,71,255,0.14), transparent 60%);
+  opacity: 0; transition: opacity 0.3s; z-index: 0;
+}
+.nova-spot:hover::before { opacity: 1; }
+.nova-spot > * { position: relative; z-index: 1; }
+
+/* reveal */
+.nova-reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.nova-in { opacity: 1; transform: translateY(0); }
+
+/* problem */
+#problem { padding: 110px 40px; }
+.problem-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; }
+.problem-card {
+  background: linear-gradient(180deg, var(--card), var(--surface));
+  border: 1px solid var(--border); border-radius: 14px; padding: 30px;
+  transition: border-color 0.25s, transform 0.2s;
+}
+.problem-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--nebula), var(--aurora));
+  opacity: 0; transition: opacity 0.25s; z-index: 2;
+}
+.problem-card:hover { border-color: rgba(108,71,255,0.5); transform: translateY(-4px); }
+.problem-card:hover::after { opacity: 1; }
+.prob-icon { font-size: 2rem; margin-bottom: 14px; }
+.prob-title { font-size: 1.02rem; font-weight: 600; margin-bottom: 8px; }
+.prob-desc { color: var(--muted); font-size: 0.88rem; }
+
+/* solution */
+#solution { padding: 110px 40px; background: var(--deep); position: relative; }
+.flow { display: flex; align-items: stretch; justify-content: center; flex-wrap: wrap; }
+.flow-item { display: flex; align-items: center; }
+.flow-step {
+  background: linear-gradient(180deg, var(--card), var(--surface));
+  border: 1px solid var(--border); border-radius: 14px; padding: 30px 24px;
+  width: 220px; text-align: center; transition: border-color 0.2s, transform 0.2s;
+}
+.flow-step:hover { border-color: var(--aurora); transform: translateY(-4px); box-shadow: 0 20px 60px -30px var(--aurora-glow); }
+.flow-arrow { color: var(--dim); font-size: 1.4rem; padding: 0 8px; }
+.step-num { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--aurora); letter-spacing: 0.15em; margin-bottom: 12px; }
+.step-icon { font-size: 2.2rem; margin-bottom: 10px; }
+.step-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+.step-desc { font-size: 0.8rem; color: var(--muted); }
+
+/* tech */
+#tech { padding: 110px 40px; }
+.tech-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.tech-card {
+  background: linear-gradient(180deg, var(--card), var(--surface));
+  border: 1px solid var(--border); border-radius: 14px; padding: 26px;
+  transition: border-color 0.25s, transform 0.2s;
+}
+.tech-card:hover { border-color: var(--nebula); transform: translateY(-4px); }
+.tech-label { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--nebula); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 12px; }
+.tech-title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; }
+.tech-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+.tag {
+  font-size: 0.72rem; padding: 4px 10px; border-radius: 20px;
+  background: rgba(108,71,255,0.12); border: 1px solid rgba(108,71,255,0.28);
+  color: var(--muted); font-family: 'Space Mono', monospace;
+}
+.tag.aurora { background: rgba(0,229,200,0.1); border-color: rgba(0,229,200,0.28); color: var(--aurora); }
+
+
+/* impact */
+#impact { padding: 110px 40px; }
+.impact-row { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: start; }
+.impact-eyebrow { font-size: 0.78rem; font-family: 'Space Mono', monospace; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 20px; }
+.impact-eyebrow.aurora { color: var(--aurora); }
+.impact-eyebrow.nebula { color: var(--nebula); }
+.sdg-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
+.sdg-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s, transform 0.2s; }
+.sdg-card:hover { border-color: var(--aurora); transform: translateY(-2px); }
+.sdg-num { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--aurora); margin-bottom: 6px; letter-spacing: 0.1em; }
+.sdg-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+.sdg-desc { font-size: 0.78rem; color: var(--muted); }
+.audience-list { display: flex; flex-direction: column; gap: 14px; }
+.aud-item { display: flex; gap: 16px; align-items: flex-start; padding: 20px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); transition: border-color 0.2s, transform 0.2s; }
+.aud-item:hover { border-color: var(--nebula); transform: translateY(-2px); }
+.aud-icon { font-size: 1.5rem; margin-top: 2px; }
+.aud-title { font-size: 0.92rem; font-weight: 600; margin-bottom: 4px; }
+.aud-desc { font-size: 0.8rem; color: var(--muted); }
+
+/* team */
+#team { padding: 110px 40px; background: var(--deep); }
+.team-banner {
+  background:
+    radial-gradient(600px circle at 20% 0%, rgba(108,71,255,0.18), transparent 60%),
+    radial-gradient(600px circle at 80% 100%, rgba(0,229,200,0.14), transparent 60%),
+    linear-gradient(135deg, rgba(108,71,255,0.06) 0%, rgba(0,229,200,0.04) 100%);
+  border: 1px solid var(--border); border-radius: 20px; padding: 56px 60px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.team-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(120,100,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120,100,255,0.06) 1px, transparent 1px);
+  background-size: 30px 30px; opacity: 0.6;
+  mask-image: radial-gradient(ellipse at center, black, transparent 70%);
+}
+.team-name {
+  font-family: 'Space Mono', monospace; font-size: 2.8rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--aurora), var(--nebula));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  letter-spacing: 0.14em; margin-bottom: 14px; position: relative;
+}
+.team-desc { color: var(--muted); max-width: 520px; margin: 0 auto 28px; position: relative; }
+.badge-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; }
+.badge { font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 16px; border-radius: 20px; }
+.badge-purple { background: rgba(108,71,255,0.15); border: 1px solid rgba(108,71,255,0.32); color: var(--nebula); }
+.badge-teal { background: rgba(0,229,200,0.1); border: 1px solid rgba(0,229,200,0.28); color: var(--aurora); }
+.badge-red { background: rgba(255,78,106,0.1); border: 1px solid rgba(255,78,106,0.28); color: var(--danger); }
+
+footer {
+  border-top: 1px solid var(--border); padding: 32px 40px; text-align: center;
+  color: var(--dim); font-size: 0.82rem; font-family: 'Space Mono', monospace;
+  position: relative; z-index: 2;
+}
+footer span { color: var(--aurora); }
+
+.divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); position: relative; z-index: 2; }
+
+@media (max-width: 900px) {
+  .tech-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 768px) {
+  .nova-nav { padding: 14px 20px; }
+  .nova-links { display: none; }
+  #hero { padding: 110px 20px 80px; }
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .hero-visual { height: 380px; }
+  .hero-stats { grid-template-columns: repeat(2,1fr); }
+  .container, #problem, #solution, #tech, #impact, #team {
+    padding-left: 20px; padding-right: 20px;
+  }
+  .problem-grid, .tech-grid { grid-template-columns: 1fr; }
+  .flow { flex-direction: column; align-items: center; gap: 8px; }
+  .flow-item { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); padding: 8px 0; }
+  .impact-row { grid-template-columns: 1fr; }
+  .sdg-grid { grid-template-columns: 1fr; }
+  .team-banner { padding: 36px 24px; }
+  .scroll-hint { display: none; }
+}
+`;
