@@ -56,15 +56,6 @@ const PIPELINE_STAGES = [
   { icon: "💬", title: "Generating GPT Response...", desc: "Synthesizing AI insights" },
 ];
 
-const QUESTION_SUGGESTIONS = [
-  "Describe this image.",
-  "Is agriculture suitable here?",
-  "Is there flooding?",
-  "What type of land cover exists?",
-  "Describe nearby settlements.",
-  "What environmental risks can you identify?"
-];
-
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
@@ -427,25 +418,6 @@ function NovaDemo() {
               />
               <div className="nd-question-char-count">
                 {initialQuestion.length} / 500
-              </div>
-              <div className="nd-question-suggestions">
-                {QUESTION_SUGGESTIONS.map(q => (
-                  <button 
-                    key={q} 
-                    className="nd-suggestion-chip" 
-                    onClick={() => {
-                      setInitialQuestion(q);
-                      const el = document.getElementById("initial-question-input");
-                      if (el) {
-                        el.style.height = "auto";
-                        el.style.height = `${el.scrollHeight}px`;
-                      }
-                    }}
-                    disabled={status === "running"}
-                  >
-                    {q}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -897,10 +869,6 @@ const css = `
 .nd-initial-question textarea:focus { outline: none; border-color: var(--nebula); }
 .nd-initial-question textarea:disabled { opacity: 0.5; cursor: not-allowed; }
 .nd-question-char-count { font-size: 0.7rem; color: var(--dim); text-align: right; margin-top: -4px; font-family: 'Space Mono', monospace; }
-.nd-question-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.nd-suggestion-chip { background: rgba(0,229,200,0.05); border: 1px solid rgba(0,229,200,0.2); border-radius: 12px; padding: 4px 10px; font-size: 0.72rem; color: var(--aurora); cursor: pointer; transition: all 0.2s; font-family: inherit; white-space: nowrap; }
-.nd-suggestion-chip:hover:not(:disabled) { background: rgba(0,229,200,0.15); border-color: var(--aurora); }
-.nd-suggestion-chip:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .nd-filename { margin-top: 12px; font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
 .nd-filename span { color: var(--dim); }
