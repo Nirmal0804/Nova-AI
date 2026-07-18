@@ -53,6 +53,15 @@ interface ChatMessage {
   isReport?: boolean;
 }
 
+interface ChatSession {
+  id: number;
+  date: Date;
+  messages: ChatMessage[];
+  result: AnalysisResult | null;
+  file: File | null;
+  previewUrl: string | null;
+}
+
 function NovaDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -62,6 +71,8 @@ function NovaDemo() {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
@@ -94,6 +105,16 @@ function NovaDemo() {
   }, []);
 
   const handleReset = useCallback(() => {
+    if (messages.length > 0 || result || file) {
+      setSessions((prev) => [{
+        id: Date.now(),
+        date: new Date(),
+        messages,
+        result,
+        file,
+        previewUrl
+      }, ...prev]);
+    }
     setMessages([]);
     setFile(null);
     setPreviewUrl(null);
@@ -102,8 +123,18 @@ function NovaDemo() {
     setError(null);
     setStageIndex(-1);
     setChatInput("");
+    setShowHistory(false);
     timers.current.forEach(clearTimeout);
     timers.current = [];
+  }, [messages, result, file, previewUrl]);
+
+  const restoreSession = useCallback((s: ChatSession) => {
+    setMessages(s.messages);
+    setResult(s.result);
+    setFile(s.file);
+    setPreviewUrl(s.previewUrl);
+    setStatus(s.result || s.messages.length > 0 ? "done" : "idle");
+    setShowHistory(false);
   }, []);
 
   const runAnalysis = useCallback(async (prompt: string) => {
@@ -305,7 +336,7 @@ function NovaDemo() {
         <aside className="cb-sidebar">
           <div className="cb-sidebar-top">
             <button className="cb-sidebar-btn active" title="New Chat" onClick={handleReset}>✨</button>
-            <button className="cb-sidebar-btn" title="History">📜</button>
+            <button className="cb-sidebar-btn" title="History" onClick={() => setShowHistory(true)}>📜</button>
             <button className="cb-sidebar-btn" title="Saved Reports">📁</button>
           </div>
         </aside>
@@ -323,7 +354,30 @@ function NovaDemo() {
             </Link>
           </header>
 
-          <div className="cb-chat-container">
+          {showHistory ? (
+            <div className="cb-history-view">
+              <h2 className="cb-history-title">Session History</h2>
+              {sessions.length === 0 ? (
+                <div className="cb-history-empty">No past sessions found.</div>
+              ) : (
+                <div className="cb-history-list">
+                  {sessions.map(s => (
+                    <div key={s.id} className="cb-history-card" onClick={() => restoreSession(s)}>
+                      {s.previewUrl && <img src={s.previewUrl} alt="Thumbnail" className="cb-history-thumb" />}
+                      <div className="cb-history-info">
+                        <div className="cb-history-date">{s.date.toLocaleString()}</div>
+                        <div className="cb-history-desc">
+                          {s.result?.insight?.slice(0, 60) || s.messages[0]?.text?.slice(0, 60) || "Unfinished Session"}...
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="cb-chat-container">
             {messages.length === 0 ? (
               <div className="cb-welcome">
                 <div className="cb-hero-orb orb1"></div>
@@ -365,6 +419,9 @@ function NovaDemo() {
                        </div>
                     )}
                     <div className={`cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`}>
+                      {m.role === "assistant" && !m.isReport && (
+                        <button className="cb-copy-btn" onClick={() => navigator.clipboard.writeText(m.text)} title="Copy text">📋</button>
+                      )}
                       <div className="cb-msg-text cb-markdown">
                         {m.role === "assistant" && !m.isReport ? (
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -455,6 +512,14 @@ function NovaDemo() {
                             </div>
                           ) : null}
 
+                          {/* Raw JSON */}
+                          <div className="cb-report-section">
+                            <details className="cb-raw-json">
+                              <summary>View Raw JSON</summary>
+                              <pre>{JSON.stringify(result, null, 2)}</pre>
+                            </details>
+                          </div>
+
                           {/* Land Cover Classes */}
                           {result.classes && result.classes.length > 0 && (
                             <div className="cb-report-section">
@@ -530,7 +595,7 @@ function NovaDemo() {
               <input
                 id="cb-file-input"
                 type="file"
-                accept=".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff"
+                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
                 hidden
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                 onClick={(e) => (e.currentTarget.value = "")}
@@ -693,6 +758,30 @@ const css = `
 .cb-insight-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .cb-insight-list li { font-size: 0.9rem; line-height: 1.5; color: var(--star); }
 .cb-insight-list li strong { color: #fff; }
+
+/* History View */
+.cb-history-view { flex: 1; padding: 32px; overflow-y: auto; }
+.cb-history-title { font-family: 'Space Mono', monospace; color: var(--aurora); margin-top: 0; margin-bottom: 24px; font-size: 1.25rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; }
+.cb-history-empty { color: var(--muted); font-size: 0.95rem; text-align: center; margin-top: 64px; }
+.cb-history-list { display: flex; flex-direction: column; gap: 16px; max-width: 600px; margin: 0 auto; }
+.cb-history-card { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--border); padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; align-items: center; }
+.cb-history-card:hover { border-color: var(--aurora); transform: translateY(-2px); box-shadow: 0 4px 24px rgba(0,229,200,0.1); }
+.cb-history-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #000; }
+.cb-history-info { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.cb-history-date { font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+.cb-history-desc { font-size: 0.95rem; color: var(--star); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Copy Button */
+.cb-msg-bubble { position: relative; }
+.cb-copy-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: all 0.2s; opacity: 0; line-height: 1; }
+.cb-msg-bubble:hover .cb-copy-btn { opacity: 1; }
+.cb-copy-btn:hover { color: var(--aurora); border-color: var(--aurora); background: rgba(0,229,200,0.1); }
+
+/* Raw JSON Details */
+.cb-raw-json { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.3); }
+.cb-raw-json summary { font-size: 0.85rem; color: var(--muted); cursor: pointer; font-family: 'Space Mono', monospace; text-transform: uppercase; user-select: none; }
+.cb-raw-json summary:hover { color: var(--aurora); }
+.cb-raw-json pre { margin: 12px 0 0 0; padding-top: 12px; border-top: 1px dashed var(--border); font-size: 0.8rem; color: var(--star); font-family: 'Space Mono', monospace; white-space: pre-wrap; word-wrap: break-word; overflow-x: hidden; max-height: 300px; overflow-y: auto; }
 
 .cb-ndvi-section { display: flex; gap: 16px; align-items: center; }
 .cb-ndvi-score { flex: 1; background: rgba(26,152,80,0.1); border: 1px solid rgba(26,152,80,0.3); padding: 16px; border-radius: 12px; text-align: center; }
