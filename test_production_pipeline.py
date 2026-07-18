@@ -102,7 +102,7 @@ def test_interpreter_test():
 def test_analyze_production_ok():
     print("Testing POST /api/analyze (valid flow)...")
     with open(IMAGE_PATH, "rb") as f:
-        r = requests.post(URL_ANALYZE, files={"file": f})
+        r = requests.post(URL_ANALYZE, files={"image": f})
     assert r.status_code == 200, f"Expected 200, got {r.status_code}"
     data = r.json()
     

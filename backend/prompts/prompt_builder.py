@@ -21,6 +21,8 @@ from backend.prompts.templates import (
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
     SECONDARY_LAND_COVER_FALLBACK,
+    QUESTION_SYSTEM_PROMPT,
+    QUESTION_USER_TEMPLATE,
 )
 from backend.schemas.prompt import EOContext, PromptPayload
 from backend.utils.logger import logger
@@ -88,6 +90,42 @@ class PromptBuilder:
 
         return PromptPayload(
             system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+
+    def build_question_prompt(self, eo_context: EOContext, question: str) -> PromptPayload:
+        """
+        Build a PromptPayload for a single predefined EO question.
+
+        Reuses the same EOContext already produced by /api/analyze — no
+        RemoteCLIP or interpreter re-execution required.
+
+        Args:
+            eo_context: The validated EOContext from the completed analysis.
+            question:   The predefined question string the user clicked.
+
+        Returns:
+            PromptPayload with the focused Q&A system and user prompts.
+
+        Raises:
+            ValueError: If eo_context fails validation or question is blank.
+        """
+        if not question or not question.strip():
+            raise ValueError("question must not be blank.")
+
+        self._validate(eo_context)
+        secondary = self._resolve_secondary(eo_context.secondary_land_cover)
+
+        user_prompt = QUESTION_USER_TEMPLATE.format(
+            dominant_land_cover=eo_context.dominant_land_cover,
+            secondary_land_cover=secondary,
+            confidence=eo_context.confidence,
+            summary=eo_context.summary,
+            question=question.strip(),
+        )
+
+        return PromptPayload(
+            system_prompt=QUESTION_SYSTEM_PROMPT,
             user_prompt=user_prompt,
         )
 

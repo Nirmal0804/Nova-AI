@@ -16,9 +16,15 @@ interface LandCoverClass {
 }
 
 interface AnalysisResult {
+  status: string;
+  dominant_land_cover: string;
+  secondary_land_cover?: string;
+  confidence: string;
+  summary: string;
+  gpt_analysis?: string;
+  insight: string;
   classes: LandCoverClass[];
   flags: { icon: string; label: string; level: "info" | "warning" | "danger" }[];
-  insight: string;
   width?: number;
   height?: number;
   title?: string;
@@ -62,7 +68,7 @@ function NovaDemo() {
   const [chatInput, setChatInput] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,13 +81,13 @@ function NovaDemo() {
   const handleFile = useCallback((f: File | null) => {
     setError(null);
     if (!f) return;
-    
+
     const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/tiff"];
     if (!validTypes.includes(f.type)) {
       setError(`Invalid file type. Please upload a PNG, JPG, or TIFF image.`);
       return;
     }
-    
+
     if (f.size > 10 * 1024 * 1024) {
       setError(`File is too large. Max size is 10MB.`);
       return;
@@ -93,7 +99,7 @@ function NovaDemo() {
 
   const runAnalysis = useCallback(async (prompt: string) => {
     if (!file || !prompt.trim()) return;
-    
+
     // Set up chat state
     setMessages((prev) => [...prev, { role: "user", text: prompt }]);
     setChatInput("");
@@ -122,8 +128,8 @@ function NovaDemo() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { 
-        method: "POST", 
+      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, {
+        method: "POST",
         body: formData,
         signal: controller.signal
       }).then(
@@ -146,7 +152,7 @@ function NovaDemo() {
       const [data] = await Promise.all([fetchAnalysis, minDuration]);
       setResult(data);
       setStatus("done");
-      
+
       // Inject the rich report as an assistant message
       setMessages((prev) => [
         ...prev,
@@ -155,16 +161,16 @@ function NovaDemo() {
       // Clear file selection after analyzing so next prompt just chats unless a new file is added
       setFile(null);
       setPreviewUrl(null);
-      
+
     } catch (err: any) {
       setStatus("idle");
       setStageIndex(-1);
-      
+
       let friendlyMsg = "Something went wrong while analyzing the image.";
       if (err.name === "AbortError") friendlyMsg = "The request timed out. The server took too long to respond.";
       else if (err instanceof TypeError) friendlyMsg = "Network failure. Could not connect to the backend server.";
       else if (err instanceof Error) friendlyMsg = err.message;
-      
+
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: `⚠️ Error: ${friendlyMsg}` }
@@ -173,55 +179,39 @@ function NovaDemo() {
     }
   }, [file]);
 
-  const sendChat = useCallback(async (prompt: string) => {
-    if (!prompt.trim() || !result) return;
-    
-    setMessages((m) => [...m, { role: "user", text: prompt }]);
-    setChatInput("");
-    
-    // Exclude the initial rich report from standard text history for the stream
-    const history = messages.filter(m => !m.isReport).map((m) => ({ role: m.role, text: m.text }));
+  const [insightLoading, setInsightLoading] = useState(false);
+
+  const askInsight = useCallback(async (question: string) => {
+    if (!question.trim() || !result || insightLoading) return;
+
+    setMessages((m) => [...m, { role: "user", text: question }]);
+    setInsightLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat/stream`, {
+      const res = await fetch(`${API_BASE}/api/insights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: prompt, result, history: [...history, { role: "user", text: prompt }] }),
+        body: JSON.stringify({
+          question,
+          eo_context: {
+            dominant_land_cover: result.dominant_land_cover,
+            secondary_land_cover: result.secondary_land_cover,
+            confidence: result.confidence,
+            summary: result.summary,
+          }
+        }),
       });
-      if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("No readable stream");
+      if (!res.ok) throw new Error(`Insights request failed (${res.status})`);
 
-      setMessages((m) => [...m, { role: "assistant", text: "" }]);
-
-      let done = false;
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
-        if (value) {
-          const text = decoder.decode(value, { stream: true });
-          setMessages((m) => {
-            const updated = [...m];
-            const last = updated[updated.length - 1];
-            if (last && last.role === "assistant") {
-              updated[updated.length - 1] = { ...last, text: last.text + text };
-            }
-            return updated;
-          });
-        }
-      }
-    } catch {
-      setMessages((m) => {
-        const last = m[m.length - 1];
-        if (last && last.role === "assistant" && !last.text) {
-          return [...m.slice(0, -1), { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-        }
-        return [...m, { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-      });
+      const data = await res.json();
+      setMessages((m) => [...m, { role: "assistant", text: data.answer }]);
+    } catch (err: any) {
+      setMessages((m) => [...m, { role: "assistant", text: `Insight generation is temporarily unavailable.` }]);
+    } finally {
+      setInsightLoading(false);
     }
-  }, [result, messages]);
+  }, [result, insightLoading]);
 
   const handleSubmit = () => {
     const prompt = chatInput.trim();
@@ -229,7 +219,7 @@ function NovaDemo() {
     if (file && status !== "running") {
       runAnalysis(prompt);
     } else if (result && status !== "running") {
-      sendChat(prompt);
+      askInsight(prompt);
     }
   };
 
@@ -278,7 +268,7 @@ function NovaDemo() {
                 <div className="cb-hero-orb orb2"></div>
                 <h2>Hey! NOVA User</h2>
                 <h1>What can I help you analyze?</h1>
-                
+
                 <div className="cb-suggestions">
                   <button onClick={() => setSuggestion("Identify flood risks and map water boundaries.")}>
                     <span className="sg-icon">🌊</span>
@@ -308,13 +298,13 @@ function NovaDemo() {
                 {messages.map((m, i) => (
                   <div key={i} className={`cb-msg-wrapper ${m.role}`}>
                     {m.role === "assistant" && (
-                       <div className="cb-msg-avatar">
-                         <div className="cb-dot small" />
-                       </div>
+                      <div className="cb-msg-avatar">
+                        <div className="cb-dot small" />
+                      </div>
                     )}
                     <div className={`cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`}>
                       <div className="cb-msg-text">{m.text}</div>
-                      
+
                       {/* Rich Report Render */}
                       {m.isReport && result && (
                         <div className="cb-report-card">
@@ -329,7 +319,7 @@ function NovaDemo() {
                               )}
                             </div>
                           )}
-                          
+
                           {/* Land Cover Classes */}
                           {result.classes && result.classes.length > 0 && (
                             <div className="cb-report-section">
@@ -381,6 +371,19 @@ function NovaDemo() {
                               </div>
                             </div>
                           )}
+
+                          {/* QUICK EO INSIGHTS PANEL */}
+                          <div className="cb-report-section">
+                            <h4 className="cb-section-title">Quick EO Insights</h4>
+                            <div className="cb-insights-grid">
+                              <button disabled={insightLoading} onClick={() => askInsight("What does this landscape primarily represent?")}>🌱 What does this landscape primarily represent?</button>
+                              <button disabled={insightLoading} onClick={() => askInsight("What environmental characteristics can be inferred?")}>🌿 What environmental characteristics can be inferred?</button>
+                              <button disabled={insightLoading} onClick={() => askInsight("Is there evidence of residential or industrial development?")}>🏗 Is there evidence of residential or industrial development?</button>
+                              <button disabled={insightLoading} onClick={() => askInsight("Are there any visible environmental risks?")}>⚠ Are there any visible environmental risks?</button>
+                              <button disabled={insightLoading} onClick={() => askInsight("What are the key observations?")}>🎯 What are the key observations?</button>
+                            </div>
+                            {insightLoading && <div className="cb-insight-loading"><div className="cb-dot small pulse" /> Generating Insight...</div>}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -393,15 +396,15 @@ function NovaDemo() {
                     <div className="cb-msg-avatar"><div className="cb-dot small pulse" /></div>
                     <div className="cb-msg-bubble assistant loading">
                       <div className="cb-pipeline">
-                         {PIPELINE_STAGES.map((s, i) => {
-                           const stateCls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
-                           return (
-                             <div key={s.title} className={`cb-stage ${stateCls}`}>
-                               <span className="cb-stage-icon">{stateCls === "done" ? "✓" : s.icon}</span>
-                               <span>{s.title}</span>
-                             </div>
-                           )
-                         })}
+                        {PIPELINE_STAGES.map((s, i) => {
+                          const stateCls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
+                          return (
+                            <div key={s.title} className={`cb-stage ${stateCls}`}>
+                              <span className="cb-stage-icon">{stateCls === "done" ? "✓" : s.icon}</span>
+                              <span>{s.title}</span>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -424,10 +427,10 @@ function NovaDemo() {
               </div>
             )}
             {error && <div className="cb-input-error">⚠️ {error}</div>}
-            
+
             <div className="cb-input-box">
-              <button 
-                className="cb-attach-btn" 
+              <button
+                className="cb-attach-btn"
                 title="Attach satellite image"
                 onClick={() => document.getElementById("cb-file-input")?.click()}
               >
@@ -441,7 +444,7 @@ function NovaDemo() {
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                 onClick={(e) => (e.currentTarget.value = "")}
               />
-              <textarea 
+              <textarea
                 id="chat-input-textarea"
                 placeholder="Ask me anything..."
                 value={chatInput}
@@ -459,8 +462,8 @@ function NovaDemo() {
                 rows={1}
                 disabled={status === "running"}
               />
-              <button 
-                className="cb-submit-btn" 
+              <button
+                className="cb-submit-btn"
                 disabled={(!chatInput.trim() && !file) || status === "running"}
                 onClick={handleSubmit}
               >
@@ -577,6 +580,13 @@ const css = `
 .cb-chart-img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
 .cb-charts-row { display: flex; gap: 12px; }
 .cb-charts-row .half { flex: 1; min-width: 0; }
+
+/* QUICK EO INSIGHTS */
+.cb-insights-grid { display: flex; flex-direction: column; gap: 8px; }
+.cb-insights-grid button { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 16px; color: var(--star); text-align: left; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+.cb-insights-grid button:hover:not(:disabled) { background: rgba(108,71,255,0.1); border-color: rgba(108,71,255,0.4); transform: translateX(4px); }
+.cb-insights-grid button:disabled { opacity: 0.5; cursor: not-allowed; }
+.cb-insight-loading { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--aurora); font-family: 'Space Mono', monospace; margin-top: 12px; }
 
 /* INPUT AREA */
 .cb-input-area { max-width: 800px; width: 100%; margin: 0 auto; padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }

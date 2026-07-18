@@ -55,7 +55,8 @@ def test_valid_high_confidence():
     assert "Agriculture" in payload.user_prompt, "secondary land cover must appear in user_prompt"
     assert "High" in payload.user_prompt, "confidence must appear in user_prompt"
     assert "NovaAI" in payload.system_prompt, "system prompt must define NovaAI"
-    assert "hallucinate" in payload.system_prompt.lower(), "anti-hallucination instruction must be present"
+    assert "Never invent" in payload.system_prompt, "anti-hallucination instruction must be present"
+    assert "Executive Summary" in payload.user_prompt, "new report structure must be enforced"
 
 
 def test_undetermined_secondary_uses_fallback():
