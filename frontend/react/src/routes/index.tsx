@@ -30,12 +30,7 @@ const tech = [
 
 
 
-const stats = [
-  { v: "2.5PB", l: "EO data / day" },
-  { v: "<60s", l: "Insight latency" },
-  { v: "13+", l: "Spectral bands" },
-  { v: "4", l: "SDGs aligned" },
-];
+
 
 const marquee = ["PyTorch", "ViT", "GPT-OSS", "LLaMA", "OpenCV", "Rasterio", "GDAL", "FastAPI", "Sentinel Hub", "NASA Earthdata", "ISRO EO", "Plotly", "EfficientNet", "Mistral"];
 
@@ -130,7 +125,7 @@ function NovaLanding() {
         <div className="hero-orb orb3" />
         <div className="hero-inner">
           <div className="nova-reveal">
-            <div className="hero-eyebrow">Makeathon 3.0 · Space Technology</div>
+            <div className="hero-eyebrow">Where Space Meets AI</div>
             <h1>
               <span className="nebula-text">Multimodal AI</span>
               <br />
@@ -149,18 +144,6 @@ function NovaLanding() {
               <Link to="/demo" className="btn btn-primary">
                 Launch Demo
               </Link>
-              <Link to="/demo" className="btn btn-ghost">
-                Enter Detection →
-              </Link>
-            </div>
-
-            <div className="hero-stats">
-              {stats.map((s) => (
-                <div key={s.l} className="hero-stat">
-                  <div className="hs-v">{s.v}</div>
-                  <div className="hs-l">{s.l}</div>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -265,7 +248,7 @@ function NovaLanding() {
 
 
       <footer>
-        <span>NOVA AI</span> · Team Yakuzas · SIH25170 · Makeathon 3.0 · Space Technology Track
+        <span>NOVA AI</span> · Team Yakuzas · SIH25170 · Where the Space Meets AI
       </footer>
     </div>
   );
