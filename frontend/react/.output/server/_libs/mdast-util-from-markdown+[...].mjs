@@ -1,4 +1,4 @@
-import { n as __exportAll } from "../_runtime.mjs";
+import { r as __exportAll } from "../_runtime.mjs";
 import { r as stringifyPosition } from "./hast-util-to-jsx-runtime+[...].mjs";
 import { t as decodeNamedCharacterReference } from "./decode-named-character-reference+[...].mjs";
 //#region node_modules/mdast-util-to-string/lib/index.js

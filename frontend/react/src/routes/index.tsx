@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
+import "./index.css";
 
 export const Route = createFileRoute("/")({
   component: NovaLanding,
@@ -97,7 +98,6 @@ function NovaLanding() {
 
   return (
     <div className="nova-root">
-      <style>{css}</style>
 
       <div className="nova-progress" ref={progressRef} />
 

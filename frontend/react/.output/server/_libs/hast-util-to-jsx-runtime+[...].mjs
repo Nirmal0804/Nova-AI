@@ -1,4 +1,4 @@
-import { n as __exportAll, r as __toESM, t as __commonJSMin } from "../_runtime.mjs";
+import { a as __toESM, r as __exportAll, t as __commonJSMin } from "../_runtime.mjs";
 import "./devlop.mjs";
 import { t as stringify$1 } from "./comma-separated-tokens.mjs";
 import { t as name } from "./estree-util-is-identifier-name.mjs";
