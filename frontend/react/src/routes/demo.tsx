@@ -72,6 +72,7 @@ function NovaDemo() {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [initialQuestion, setInitialQuestion] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [viewMode, setViewMode] = useState<"original" | "mask" | "blend">("original");
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -113,7 +114,7 @@ function NovaDemo() {
   }, []);
 
   const runAnalysis = useCallback(async () => {
-    if (!file) return;
+    if (!file || !initialQuestion.trim()) return;
     setStatus("running");
     setResult(null);
     setError(null);
@@ -147,6 +148,7 @@ function NovaDemo() {
     try {
       const formData = new FormData();
       formData.append("image", file);
+      formData.append("question", initialQuestion);
 
       const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { method: "POST", body: formData }).then(
         async (res) => {
@@ -161,7 +163,10 @@ function NovaDemo() {
       const [data] = await Promise.all([fetchAnalysis, minDuration]);
       setResult(data);
       setStatus("done");
-      setMessages([{ role: "assistant", text: data.insight }]);
+      setMessages([
+        { role: "user", text: initialQuestion },
+        { role: "assistant", text: data.insight }
+      ]);
     } catch (err) {
       setStatus("idle");
       setStageIndex(-1);
@@ -359,7 +364,20 @@ function NovaDemo() {
               </div>
             )}
 
-            <button className="nd-btn nd-btn-primary" disabled={!file || status === "running"} onClick={runAnalysis}>
+            <div className="nd-initial-question">
+              <label htmlFor="initial-question-input">What do you want to know?</label>
+              <input 
+                id="initial-question-input"
+                type="text" 
+                placeholder="e.g. Find all buildings in this area" 
+                value={initialQuestion}
+                onChange={(e) => setInitialQuestion(e.target.value)}
+                disabled={status === "running"}
+                onKeyDown={(e) => e.key === "Enter" && !(!file || !initialQuestion.trim() || status === "running") && runAnalysis()}
+              />
+            </div>
+
+            <button className="nd-btn nd-btn-primary" disabled={!file || !initialQuestion.trim() || status === "running"} onClick={runAnalysis}>
               {status === "running" ? "Analyzing…" : "Run Analysis"}
             </button>
 
@@ -787,6 +805,12 @@ const css = `
 .nd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .nd-btn-primary { background: linear-gradient(90deg, var(--nebula), var(--aurora)); color: #06060f; }
 .nd-btn-primary:not(:disabled):hover { transform: translateY(-1px); }
+
+.nd-initial-question { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.nd-initial-question label { font-size: 0.82rem; color: var(--star); font-weight: 500; }
+.nd-initial-question input { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--star); font-family: inherit; font-size: 0.85rem; transition: border-color 0.2s; }
+.nd-initial-question input:focus { outline: none; border-color: var(--nebula); }
+.nd-initial-question input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .nd-filename { margin-top: 12px; font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
 .nd-filename span { color: var(--dim); }
