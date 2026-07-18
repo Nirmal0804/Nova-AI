@@ -78,9 +78,9 @@ function NovaDemo() {
     setError(null);
     if (!f) return;
     
-    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/tiff"];
+    const validTypes = ["image/png", "image/jpeg"];
     if (!validTypes.includes(f.type)) {
-      setError(`Invalid file type. Please upload a PNG, JPG, or TIFF image.`);
+      setError(`Invalid file type. Please upload a PNG or JPG image.`);
       return;
     }
     
@@ -91,6 +91,19 @@ function NovaDemo() {
 
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setMessages([]);
+    setFile(null);
+    setPreviewUrl(null);
+    setStatus("idle");
+    setResult(null);
+    setError(null);
+    setStageIndex(-1);
+    setChatInput("");
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
   }, []);
 
   const runAnalysis = useCallback(async (prompt: string) => {
@@ -291,7 +304,7 @@ function NovaDemo() {
         {/* SIDEBAR */}
         <aside className="cb-sidebar">
           <div className="cb-sidebar-top">
-            <button className="cb-sidebar-btn active" title="New Chat">✨</button>
+            <button className="cb-sidebar-btn active" title="New Chat" onClick={handleReset}>✨</button>
             <button className="cb-sidebar-btn" title="History">📜</button>
             <button className="cb-sidebar-btn" title="Saved Reports">📁</button>
           </div>
@@ -392,22 +405,55 @@ function NovaDemo() {
                                     <span className="cb-eo-value">{result.classes[1]?.label || "N/A"}</span>
                                   </div>
                                   <div className="cb-eo-item">
-                                    <span className="cb-eo-label">Confidence</span>
-                                    <span className="cb-eo-value">{result.classes[0]?.pct > 65 ? "High" : result.classes[0]?.pct > 40 ? "Medium" : "Low"}</span>
+                                    <span className="cb-eo-label">Coverage</span>
+                                    <span className="cb-eo-value">{result.classes[0]?.pct ? `${result.classes[0].pct}%` : "N/A"}</span>
                                   </div>
                                 </div>
                                 <div className="cb-eo-matches">
-                                  <div className="cb-eo-label" style={{marginBottom: "10px"}}>Top Similarity Matches</div>
+                                  <div className="cb-eo-label" style={{marginBottom: "10px"}}>Area Breakdown</div>
                                   {result.classes.slice(0, 4).map(c => (
                                     <div key={c.label} className="cb-eo-match-row">
                                       <span>{c.label}</span>
-                                      <span className="cb-eo-match-score">{(c.pct / 100).toFixed(2)}</span>
+                                      <span className="cb-eo-match-score">{c.pct}%</span>
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             </div>
                           )}
+
+                          {/* Strategic Insights */}
+                          {(result.use_cases?.length || result.recommended_actions?.length) ? (
+                            <div className="cb-report-section">
+                              <h4 className="cb-section-title">Strategic Insights</h4>
+                              <div className="cb-insights-grid">
+                                {result.use_cases && result.use_cases.length > 0 && (
+                                  <div className="cb-insight-col">
+                                    <h5 className="cb-insight-heading">Use Cases</h5>
+                                    <ul className="cb-insight-list">
+                                      {result.use_cases.map((uc, i) => (
+                                        <li key={i}>
+                                          <strong>{uc.name}:</strong> {uc.rationale}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {result.recommended_actions && result.recommended_actions.length > 0 && (
+                                  <div className="cb-insight-col">
+                                    <h5 className="cb-insight-heading">Recommended Actions</h5>
+                                    <ul className="cb-insight-list">
+                                      {result.recommended_actions.map((ra, i) => (
+                                        <li key={i}>
+                                          <strong>{ra.audience}:</strong> {ra.action}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
 
                           {/* Land Cover Classes */}
                           {result.classes && result.classes.length > 0 && (
@@ -426,37 +472,6 @@ function NovaDemo() {
                                     <div className="cb-class-pct">{c.pct}%</div>
                                   </div>
                                 ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* NDVI */}
-                          {result.ndvi_score != null && (
-                            <div className="cb-report-section">
-                              <h4 className="cb-section-title">Vegetation Health (NDVI)</h4>
-                              <div className="cb-ndvi-section">
-                                <div className="cb-ndvi-score">
-                                  <div className="cb-ndvi-val" style={{ color: result.ndvi_score > 0.6 ? '#1a9850' : result.ndvi_score > 0.45 ? '#d9ef8b' : result.ndvi_score > 0.3 ? '#fee08b' : '#d73027' }}>
-                                    {result.ndvi_score.toFixed(3)}
-                                  </div>
-                                  <div className="cb-ndvi-label">
-                                    {result.ndvi_score > 0.6 ? 'Dense Vegetation' : result.ndvi_score > 0.45 ? 'Moderate' : result.ndvi_score > 0.3 ? 'Sparse' : 'Low / Barren'}
-                                  </div>
-                                </div>
-                                {result.ndvi_heatmap && (
-                                  <img src={`data:image/png;base64,${result.ndvi_heatmap}`} alt="NDVI heatmap" className="cb-chart-img" />
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Matplotlib Charts */}
-                          {(result.pie_chart || result.bar_chart) && (
-                            <div className="cb-report-section">
-                              <h4 className="cb-section-title">Statistical Charts</h4>
-                              <div className="cb-charts-row">
-                                {result.pie_chart && <img src={`data:image/png;base64,${result.pie_chart}`} alt="Pie chart" className="cb-chart-img half" />}
-                                {result.bar_chart && <img src={`data:image/png;base64,${result.bar_chart}`} alt="Bar chart" className="cb-chart-img half" />}
                               </div>
                             </div>
                           )}
@@ -667,9 +682,17 @@ const css = `
 .cb-class-row { display: grid; grid-template-columns: 140px 1fr 50px; align-items: center; gap: 12px; font-size: 0.85rem; }
 .cb-class-label { display: flex; align-items: center; gap: 8px; color: var(--star); }
 .cb-swatch { width: 10px; height: 10px; border-radius: 2px; }
-.cb-class-bar-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); }
-.cb-class-bar { height: 100%; border-radius: 4px; }
-.cb-class-pct { font-family: 'Space Mono', monospace; color: var(--muted); text-align: right; }
+.cb-class-bar-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+.cb-class-bar { height: 100%; border-radius: 3px; }
+.cb-class-pct { text-align: right; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+/* Strategic Insights */
+.cb-insights-grid { display: flex; flex-direction: column; gap: 16px; }
+.cb-insight-col { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.cb-insight-heading { margin: 0 0 12px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--aurora); font-family: 'Space Mono', monospace; }
+.cb-insight-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.cb-insight-list li { font-size: 0.9rem; line-height: 1.5; color: var(--star); }
+.cb-insight-list li strong { color: #fff; }
 
 .cb-ndvi-section { display: flex; gap: 16px; align-items: center; }
 .cb-ndvi-score { flex: 1; background: rgba(26,152,80,0.1); border: 1px solid rgba(26,152,80,0.3); padding: 16px; border-radius: 12px; text-align: center; }
