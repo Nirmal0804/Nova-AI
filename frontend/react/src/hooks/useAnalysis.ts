@@ -14,6 +14,7 @@ export interface AnalysisResult {
   confidence: string;
   summary: string;
   gpt_analysis?: string;
+  professional_report?: string;
   classes: LandCoverClass[];
   flags: { icon: string; label: string; level: "info" | "warning" | "danger" }[];
   insight: string;
@@ -248,7 +249,7 @@ export function useAnalysis() {
 
         return [
           ...prev,
-          { role: "assistant", text: data.insight, isReport: true }
+          { role: "assistant", text: data.professional_report || data.gpt_analysis || data.insight, isReport: true }
         ];
       });
       setFile(null);

@@ -8,6 +8,7 @@ from backend.api.vision import router as vision_router
 from backend.api.interpreter import router as interpreter_router
 from backend.api.analyze import router as analyze_router
 from backend.api.insights import router as insights_router
+from backend.api.report import router as report_router
 
 app = FastAPI(
     title="Nova Ai API",
@@ -28,6 +29,7 @@ app.include_router(vision_router)
 app.include_router(interpreter_router)
 app.include_router(analyze_router)
 app.include_router(insights_router)
+app.include_router(report_router)
 
 @app.on_event("startup")
 async def startup_event():
