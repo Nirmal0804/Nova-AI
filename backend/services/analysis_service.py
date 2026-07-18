@@ -1,107 +1,272 @@
 """
 analysis_service.py
 -------------------
-Orchestration service skeleton for the Earth Observation (EO) Analysis pipeline.
+Orchestration service for the NovaAI Earth Observation Analysis pipeline.
 
-This module acts as the service orchestration layer, coordinating the flow between
-the RemoteCLIP model (vision), the EO interpreter rules (semantics), and the LLM (GPT reasoning).
+Coordinates the complete flow:
+  1. Image loading and validation        — image_loader
+  2. RemoteCLIP inference                — vision.inference
+  3. EO interpretation                   — interpreter.eo_interpreter
+  4. Prompt construction                 — prompts.prompt_builder
+  5. GPT analysis                        — llm.gpt_service
+  6. Unified AnalysisResponse assembly   — schemas.analysis
 
-Constraints:
-  - This is an architectural skeleton for Phase 5 preparation.
-  - Core orchestration methods are defined with proper signatures and docstrings.
-  - No active image analysis pipelines or GPT connections are executed in this skeleton.
+Design rules:
+  - Reuses existing validated modules; no logic is duplicated.
+  - RemoteCLIP singleton is reused across requests (no re-loading).
+  - GPT failure is non-fatal: pipeline returns partial_success with vision results intact.
+  - Raw vision internals (embeddings, scores) are never included in the production response.
+  - All stages are logged; no prompt content, API keys, or image bytes are logged.
 """
 
+import time
+from datetime import datetime, timezone
+from typing import Optional
+
 from PIL import Image
-from typing import Dict, Any, Optional
+
+from backend.vision.image_loader import validate_and_load_image
+from backend.vision.inference import run_remoteclip_inference
+from backend.vision.remoteclip import remoteclip_service
+
+from backend.interpreter.eo_interpreter import interpret
+from backend.interpreter.eo_schema import SimilarityEntry
+
+from backend.prompts.prompt_builder import prompt_builder
+from backend.schemas.prompt import EOContext
+
+from backend.llm.gpt_service import GPTService
+from backend.llm.openrouter import OpenRouterClient
+
+from backend.schemas.analysis import AnalysisResponse, AnalysisMetadata
 from backend.utils.logger import logger
 
 
 class AnalysisService:
     """
-    Coordinates and automates the combined EO analysis workflow:
-    1. Input image ingestion and verification.
-    2. RemoteCLIP inference (feature extraction / similarity mapping).
-    3. Rule-based Earth Observation category mapping and confidence scoring.
-    4. GPT-driven domain reasoning and final interpretation.
+    Orchestrates the complete EO analysis pipeline for POST /api/analyze.
+
+    Instantiates exactly one GPTService backed by one OpenRouterClient.
+    The RemoteCLIP model is accessed via its module-level singleton
+    (remoteclip_service) and is loaded lazily on first request.
     """
 
     def __init__(self):
-        logger.info("Initializing AnalysisService skeleton for orchestration preparation.")
+        provider = OpenRouterClient()
+        self.gpt_service = GPTService(provider)
+        logger.info("AnalysisService initialized.")
 
-    def run_remoteclip(self, image: Image.Image) -> Dict[str, Any]:
-        """
-        Executes RemoteCLIP model inference on a pre-validated PIL Image.
+    # ------------------------------------------------------------------
+    # Public pipeline entrypoint
+    # ------------------------------------------------------------------
 
-        Args:
-            image: A validated PIL.Image in RGB mode.
-
-        Returns:
-            A dictionary containing generated image embeddings, statistics,
-            and zero-shot similarity scores against the centralized label set.
-        """
-        logger.info("Orchestration step: run_remoteclip (Placeholder called).")
-        # TODO: Integrate with backend.vision.inference.run_remoteclip_inference in Phase 5
-        return {}
-
-    def interpret_scene(self, similarity_results: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Transforms raw similarity outputs into structured Earth Observation context.
-
-        Args:
-            similarity_results: Raw zero_shot_inspection lists and performance metadata.
-
-        Returns:
-            A dictionary mapping to the structured EO Interpretation schema (dominant cover,
-            secondary cover, top matches, relative confidence, and limitations).
-        """
-        logger.info("Orchestration step: interpret_scene (Placeholder called).")
-        # TODO: Integrate with backend.interpreter.eo_interpreter.interpret in Phase 5
-        return {}
-
-    def generate_gpt_analysis(
-        self,
-        eo_context: Dict[str, Any],
-        user_query: Optional[str] = None
-    ) -> str:
-        """
-        Generates advanced Earth Observation reasoning analysis using GPTService.
-        Fuses rule-based context with LLM textual understanding.
-
-        Args:
-            eo_context: Structured mapping details resolved from the interpretation layer.
-            user_query: Optional user prompt or question regarding the image.
-
-        Returns:
-            A string containing the reasoning analysis report produced by the LLM.
-        """
-        logger.info("Orchestration step: generate_gpt_analysis (Placeholder called).")
-        # TODO: Integrate with backend.llm.gpt_service.GPTService in Phase 5
-        return ""
-
-    def analyze_image(
+    async def analyze_image(
         self,
         image_bytes: bytes,
         filename: str,
-        user_prompt: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> AnalysisResponse:
         """
-        Future orchestration entrypoint.
-        Pipelines validation, inference, rule-based interpretation, and GPT reasoning.
+        Execute the full EO analysis pipeline on an uploaded image.
 
         Args:
-            image_bytes: Uploaded image file content.
-            filename: The original name of the uploaded image file.
-            user_prompt: Optional natural language query from the user.
+            image_bytes: Raw bytes of the uploaded image file.
+            filename:    Original filename (used for extension validation).
 
         Returns:
-            A combined object conforming to the production-ready AnalysisResponse schema.
+            AnalysisResponse — fully populated on success, or partial_success
+            if GPT analysis fails (vision + EO interpretation are still returned).
+
+        Raises:
+            ValueError:  When image validation or EO interpretation fails.
+            RuntimeError: When RemoteCLIP model cannot be loaded.
         """
-        logger.info(f"Orchestration entrypoint: analyze_image called for file '{filename}'.")
-        # TODO: Implement the sequential pipeline choreography in Phase 5:
-        # 1. validate_and_load_image
-        # 2. run_remoteclip
-        # 3. interpret_scene
-        # 4. generate_gpt_analysis
-        # 5. return unified AnalysisResponse payload
-        return {}
+        pipeline_start = time.perf_counter()
+        logger.info(f"[analyze_image] Pipeline started for '{filename}'.")
+
+        # ----------------------------------------------------------------
+        # Stage 1 — Image loading and validation
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 1: Loading and validating image.")
+        pil_image = self._load_image(image_bytes, filename)
+        logger.info("[analyze_image] Stage 1: Image loaded successfully.")
+
+        # ----------------------------------------------------------------
+        # Stage 2 — Ensure RemoteCLIP model is ready
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 2: Ensuring RemoteCLIP model is loaded.")
+        self._ensure_model_loaded()
+        vision_model_id = f"RemoteCLIP {remoteclip_service.model_name}"
+        logger.info(f"[analyze_image] Stage 2: Model ready — {vision_model_id}.")
+
+        # ----------------------------------------------------------------
+        # Stage 3 — RemoteCLIP inference
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 3: Running RemoteCLIP inference.")
+        raw_outputs = self.run_remoteclip(pil_image)
+        logger.info("[analyze_image] Stage 3: RemoteCLIP inference complete.")
+
+        # ----------------------------------------------------------------
+        # Stage 4 — EO interpretation
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 4: Interpreting EO scene.")
+        eo_result = self.interpret_scene(
+            raw_outputs["zero_shot_inspection"],
+            vision_model=vision_model_id,
+        )
+        logger.info(
+            f"[analyze_image] Stage 4: EO interpretation complete. "
+            f"Dominant={eo_result.dominant_land_cover}, "
+            f"Confidence={eo_result.relative_confidence}."
+        )
+
+        # ----------------------------------------------------------------
+        # Stage 5 — Build PromptPayload
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 5: Building prompt payload.")
+        eo_ctx = EOContext(
+            dominant_land_cover=eo_result.dominant_land_cover,
+            secondary_land_cover=eo_result.secondary_land_cover,
+            confidence=eo_result.relative_confidence,
+            summary=eo_result.summary,
+        )
+        prompt_payload = prompt_builder.build_prompt(eo_ctx)
+        logger.info("[analyze_image] Stage 5: Prompt payload ready.")
+
+        # ----------------------------------------------------------------
+        # Stage 6 — GPT analysis (non-fatal)
+        # ----------------------------------------------------------------
+        logger.info("[analyze_image] Stage 6: Requesting GPT analysis.")
+        gpt_text, gpt_warning, llm_model_id = await self._safe_gpt_analysis(prompt_payload)
+
+        if gpt_text:
+            logger.info("[analyze_image] Stage 6: GPT analysis received.")
+        else:
+            logger.warning(f"[analyze_image] Stage 6: GPT unavailable — {gpt_warning}.")
+
+        # ----------------------------------------------------------------
+        # Stage 7 — Assemble AnalysisResponse
+        # ----------------------------------------------------------------
+        pipeline_ms = (time.perf_counter() - pipeline_start) * 1000
+        status = "success" if gpt_text else "partial_success"
+
+        response = AnalysisResponse(
+            status=status,
+            dominant_land_cover=eo_result.dominant_land_cover,
+            secondary_land_cover=(
+                eo_result.secondary_land_cover
+                if eo_result.secondary_land_cover != "Undetermined"
+                else None
+            ),
+            confidence=eo_result.relative_confidence,
+            summary=eo_result.summary,
+            gpt_analysis=gpt_text,
+            warning=gpt_warning,
+            metadata=AnalysisMetadata(
+                vision_model=vision_model_id,
+                llm_model=llm_model_id,
+                processing_time_ms=round(pipeline_ms, 2),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                version="1.0",
+            ),
+        )
+
+        logger.info(
+            f"[analyze_image] Pipeline completed in {pipeline_ms:.1f}ms. "
+            f"Status: {status}."
+        )
+        return response
+
+    # ------------------------------------------------------------------
+    # Stage helpers
+    # ------------------------------------------------------------------
+
+    def run_remoteclip(self, image: Image.Image) -> dict:
+        """
+        Run RemoteCLIP inference on a pre-validated RGB PIL Image.
+
+        Args:
+            image: A validated PIL Image in RGB mode.
+
+        Returns:
+            Raw inference output dict from run_remoteclip_inference, containing
+            embedding_shape, embeddings_stats, zero_shot_inspection, and performance.
+        """
+        return run_remoteclip_inference(image)
+
+    def interpret_scene(
+        self,
+        zero_shot_inspection: list,
+        vision_model: Optional[str] = None,
+    ):
+        """
+        Convert raw zero_shot_inspection entries into structured EO context.
+
+        Args:
+            zero_shot_inspection: List of dicts (tag, cosine_similarity, confidence_score)
+                                  from run_remoteclip_inference output.
+            vision_model:         Optional model provenance string.
+
+        Returns:
+            EOInterpretation Pydantic model.
+        """
+        entries = [
+            SimilarityEntry(
+                tag=item["tag"],
+                cosine_similarity=item["cosine_similarity"],
+                confidence_score=item["confidence_score"],
+            )
+            for item in zero_shot_inspection
+        ]
+        return interpret(entries, vision_model=vision_model)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _load_image(image_bytes: bytes, filename: str) -> Image.Image:
+        """Delegates to the validated image_loader module."""
+        return validate_and_load_image(image_bytes, filename)
+
+    @staticmethod
+    def _ensure_model_loaded() -> None:
+        """
+        Ensures the RemoteCLIP singleton is loaded.
+        Reuses the already-loaded model if available (no re-loading per request).
+        """
+        if remoteclip_service.model is None:
+            logger.info("RemoteCLIP model not yet loaded — bootstrapping now.")
+            remoteclip_service.load_model()
+
+    async def _safe_gpt_analysis(self, prompt_payload) -> tuple[Optional[str], Optional[str], str]:
+        """
+        Calls GPTService and returns (gpt_text, warning, model_id).
+
+        GPT failure is non-fatal. If the call fails for any reason,
+        gpt_text is None and a descriptive warning string is returned.
+        The pipeline continues and returns a partial_success response.
+
+        Returns:
+            Tuple of (gpt_text, warning_message, llm_model_id).
+        """
+        from backend.llm.openrouter import OpenRouterClient
+        llm_model_id = self.gpt_service.provider.model or "unknown"
+
+        try:
+            result = await self.gpt_service.generate_response(
+                system_prompt=prompt_payload.system_prompt,
+                user_prompt=prompt_payload.user_prompt,
+            )
+            gpt_text = result.get("response", "").strip()
+            llm_model_id = result.get("model", llm_model_id)
+            return gpt_text or None, None, llm_model_id
+
+        except Exception as e:
+            logger.warning(f"GPT analysis failed (non-fatal): {type(e).__name__}: {e}")
+            return None, "LLM analysis unavailable.", llm_model_id
+
+
+# ---------------------------------------------------------------------------
+# Module-level singleton — imported by the API router
+# ---------------------------------------------------------------------------
+analysis_service = AnalysisService()

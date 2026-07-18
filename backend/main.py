@@ -6,6 +6,7 @@ from backend.utils.logger import logger
 from backend.api.chat import router as chat_router
 from backend.api.vision import router as vision_router
 from backend.api.interpreter import router as interpreter_router
+from backend.api.analyze import router as analyze_router
 
 app = FastAPI(
     title="Nova Ai API",
@@ -24,6 +25,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(vision_router)
 app.include_router(interpreter_router)
+app.include_router(analyze_router)
 
 @app.on_event("startup")
 async def startup_event():
