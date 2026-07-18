@@ -21,12 +21,49 @@ interface AnalysisResultsProps {
 export const AnalysisResults = memo(({ result, askInsight, insightLoading }: AnalysisResultsProps) => {
   const [showMask, setShowMask] = useState(true);
   const [showRaw, setShowRaw] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadPdf = async () => {
+    setIsDownloading(true);
+    try {
+      const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
+      const payload = { analysis: result };
+      const res = await fetch(`${API_BASE}/api/report/pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `NovaAI_Report_${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF Download error", err);
+      alert("Failed to download PDF");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => { setShowMask(true); }}>
       <div className="cb-report-card nova-reveal nova-in">
-        <div className="cb-report-header">
+        <div className="cb-report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>Earth Observation Report</h3>
+          <button 
+            className="cb-attach-btn" 
+            onClick={downloadPdf} 
+            disabled={isDownloading}
+            style={{ fontSize: '12px', padding: '6px 12px' }}
+          >
+            {isDownloading ? "Generating..." : "📄 Download PDF"}
+          </button>
         </div>
         <hr className="cb-divider" />
 

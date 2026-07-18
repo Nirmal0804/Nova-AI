@@ -108,12 +108,8 @@ export const ChatInterface = memo(({
                 )}
                 {m.role === "user" ? (
                   <div className="cb-msg-text">{m.text}</div>
-                ) : m.isReport && result ? (
+                                  ) : m.isReport && result ? (
                   <>
-                    <div className="cb-markdown cb-report-text">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                    </div>
-                    <br />
                     <AnalysisResults result={result} askInsight={askInsight} insightLoading={insightLoading} />
                   </>
                 ) : (
