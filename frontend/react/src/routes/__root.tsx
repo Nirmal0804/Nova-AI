@@ -114,11 +114,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="overflow-x-hidden" style={{ overflowX: "hidden" }}>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
-      <body className="overflow-x-hidden m-0 p-0" style={{ overflowX: "hidden", margin: 0, padding: 0 }}>
+      <body className="m-0 p-0" style={{ margin: 0, padding: 0 }}>
         {children}
         <Scripts />
       </body>
