@@ -122,6 +122,20 @@ function NovaDemo() {
     setUploadProgress(0);
   }, []);
 
+  const resetAnalysis = useCallback(() => {
+    setFile(null);
+    setPreviewUrl(null);
+    setInitialQuestion("");
+    setResult(null);
+    setStatus("idle");
+    setError(null);
+    setMessages([]);
+    setStageIndex(-1);
+    setUploadProgress(0);
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  }, []);
+
   const runAnalysis = useCallback(async () => {
     if (!file || !initialQuestion.trim()) return;
     setStatus("running");
@@ -317,11 +331,7 @@ function NovaDemo() {
                     className="nd-remove-btn" 
                     onClick={(e) => { 
                       e.stopPropagation(); 
-                      setFile(null); 
-                      setPreviewUrl(null); 
-                      setResult(null);
-                      setStatus("idle");
-                      setError(null);
+                      resetAnalysis();
                     }}
                     title="Remove image"
                     aria-label="Remove image"
@@ -439,9 +449,16 @@ function NovaDemo() {
               </div>
             </div>
 
-            <button className="nd-btn nd-btn-primary" disabled={!file || !initialQuestion.trim() || status === "running"} onClick={runAnalysis}>
-              {status === "running" ? "Analyzing…" : "Run Analysis"}
-            </button>
+            <div className="nd-btn-group">
+              <button className="nd-btn nd-btn-primary" disabled={!file || !initialQuestion.trim() || status === "running"} onClick={runAnalysis}>
+                {status === "running" ? "Analyzing…" : "Run Analysis"}
+              </button>
+              {(file || initialQuestion || result || error) && status !== "running" && (
+                <button className="nd-btn nd-btn-secondary" onClick={resetAnalysis}>
+                  Reset Analysis
+                </button>
+              )}
+            </div>
 
             {file && (
               <div className="nd-filename">
@@ -868,6 +885,11 @@ const css = `
 .nd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .nd-btn-primary { background: linear-gradient(90deg, var(--nebula), var(--aurora)); color: #06060f; }
 .nd-btn-primary:not(:disabled):hover { transform: translateY(-1px); }
+
+.nd-btn-group { display: flex; gap: 12px; width: 100%; margin-top: 16px; }
+.nd-btn-group .nd-btn { margin-top: 0; }
+.nd-btn-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--star); }
+.nd-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
 
 .nd-initial-question { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
 .nd-initial-question label { font-size: 0.82rem; color: var(--star); font-weight: 500; }
