@@ -151,6 +151,35 @@ class AnalysisService:
             logger.warning(f"[analyze_image] Stage 6: GPT unavailable — {gpt_warning}.")
 
         # ----------------------------------------------------------------
+        # Stage 6.5 — Claude Professional Report (non-fatal)
+        # ----------------------------------------------------------------
+        professional_report = None
+        report_model_id = None
+        
+        if gpt_text:
+            logger.info("[analyze_image] Stage 6.5: Requesting Claude professional report.")
+            try:
+                report_req = ReportRequest(
+                    dominant_land_cover=eo_result.dominant_land_cover,
+                    secondary_land_cover=(eo_result.secondary_land_cover if eo_result.secondary_land_cover != "Undetermined" else None),
+                    confidence=eo_result.relative_confidence,
+                    summary=eo_result.summary,
+                    gpt_analysis=gpt_text
+                )
+                report_res = await self.generate_professional_report(report_req)
+                
+                if report_res.report == "Report unavailable":
+                    logger.warning("[analyze_image] Stage 6.5: Claude unavailable. Using fallback.")
+                    gpt_warning = "Professional report unavailable." if not gpt_warning else f"{gpt_warning} | Professional report unavailable."
+                else:
+                    professional_report = report_res.report
+                    report_model_id = report_res.model
+                    logger.info("[analyze_image] Stage 6.5: Claude report received.")
+            except Exception as e:
+                logger.error(f"[analyze_image] Stage 6.5: Claude failed unexpectedly: {e}")
+                gpt_warning = "Professional report unavailable." if not gpt_warning else f"{gpt_warning} | Professional report unavailable."
+
+        # ----------------------------------------------------------------
         # Stage 7 — Assemble AnalysisResponse
         # ----------------------------------------------------------------
         pipeline_ms = (time.perf_counter() - pipeline_start) * 1000
@@ -185,6 +214,7 @@ class AnalysisService:
             confidence=eo_result.relative_confidence,
             summary=eo_result.summary,
             gpt_analysis=gpt_text,
+            professional_report=professional_report,
             warning=gpt_warning,
             # Frontend-compatible fields
             insight=insight,
@@ -195,6 +225,7 @@ class AnalysisService:
             metadata=AnalysisMetadata(
                 vision_model=vision_model_id,
                 llm_model=llm_model_id,
+                report_model=report_model_id,
                 processing_time_ms=round(pipeline_ms, 2),
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 version="1.0",
