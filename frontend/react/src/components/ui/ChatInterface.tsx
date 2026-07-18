@@ -19,6 +19,9 @@ interface ChatInterfaceProps {
   isStreaming: boolean;
   abortRequest: () => void;
   showHistory: boolean;
+  askInsight: (q: string) => void;
+  insightLoading: boolean;
+  handleResetChat: () => void;
 }
 
 export const ChatInterface = memo(({
@@ -34,7 +37,10 @@ export const ChatInterface = memo(({
   handleFile,
   isStreaming,
   abortRequest,
-  showHistory
+  showHistory,
+  askInsight,
+  insightLoading,
+  handleResetChat
 }: ChatInterfaceProps) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -103,7 +109,7 @@ export const ChatInterface = memo(({
                 {m.role === "user" ? (
                   <div className="cb-msg-text">{m.text}</div>
                 ) : m.isReport && result ? (
-                  <AnalysisResults result={result} />
+                  <AnalysisResults result={result} askInsight={askInsight} insightLoading={insightLoading} />
                 ) : (
                   <div className="cb-markdown">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
@@ -130,44 +136,58 @@ export const ChatInterface = memo(({
               <button className="cb-attachment-remove" onClick={() => handleFile(null)}>×</button>
             </div>
           )}
-          <div className="cb-input-box">
-            <button 
-              className="cb-attach-btn" 
-              onClick={() => document.getElementById("file-upload")?.click()}
-              title="Attach Image"
-            >
-              <span style={{ fontSize: "1.1rem" }}>+</span>
-              <span className="cb-attach-text">Attach</span>
-            </button>
-            <input 
-              id="file-upload" 
-              type="file" 
-              accept="image/png, image/jpeg" 
-              style={{ display: "none" }} 
-              onChange={(e) => handleFile(e.target.files?.[0] || null)}
-            />
-            <textarea 
-              id="chat-input-textarea"
-              placeholder={file || result ? "Ask a follow-up question..." : "Describe what you want to analyze..."}
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={Math.min(chatInput.split("\\n").length, 5) || 1}
-            />
-            {isStreaming || status === "running" ? (
-              <button className="cb-submit-btn cb-stop-btn" onClick={abortRequest} title="Stop generation">
-                ⏹
-              </button>
-            ) : (
-              <button 
-                className="cb-submit-btn" 
-                onClick={handleSubmit}
-                disabled={(!chatInput.trim() && !file) || status === "running"}
+          {!(result && !file) && (
+            <div className="cb-input-box">
+              <button
+                className="cb-attach-btn"
+                onClick={() => document.getElementById("file-upload")?.click()}
+                title="Attach Image"
               >
-                ↑
+                <span style={{ fontSize: "1.1rem" }}>+</span>
+                <span className="cb-attach-text">Attach</span>
               </button>
-            )}
-          </div>
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/png, image/jpeg"
+                style={{ display: "none" }}
+                onChange={(e) => handleFile(e.target.files?.[0] || null)}
+              />
+              <textarea
+                id="chat-input-textarea"
+                placeholder={file || result ? "Ask a follow-up question..." : "Describe what you want to analyze..."}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={Math.min(chatInput.split("\\n").length, 5) || 1}
+              />
+              {isStreaming || status === "running" ? (
+                <button className="cb-submit-btn cb-stop-btn" onClick={abortRequest} title="Stop generation">
+                  ⏹
+                </button>
+              ) : (
+                <button
+                  className="cb-submit-btn"
+                  onClick={handleSubmit}
+                  disabled={(!chatInput.trim() && !file) || status === "running"}
+                >
+                  ↑
+                </button>
+              )}
+            </div>
+          )}
+
+          {result && !file && (
+            <div className="cb-input-box" style={{ justifyContent: 'center', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+              <button
+                className="cb-attach-btn"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                onClick={handleResetChat}
+              >
+                🔄 Start New Analysis
+              </button>
+            </div>
+          )}
           <div className="cb-footer-text">
             NOVA AI can make mistakes. Verify critical intelligence.
           </div>

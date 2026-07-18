@@ -8,6 +8,12 @@ export interface LandCoverClass {
 }
 
 export interface AnalysisResult {
+  status: string;
+  dominant_land_cover: string;
+  secondary_land_cover?: string;
+  confidence: string;
+  summary: string;
+  gpt_analysis?: string;
   classes: LandCoverClass[];
   flags: { icon: string; label: string; level: "info" | "warning" | "danger" }[];
   insight: string;
@@ -62,6 +68,7 @@ export function useAnalysis() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [insightLoading, setInsightLoading] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -69,13 +76,13 @@ export function useAnalysis() {
   const handleFile = useCallback(async (f: File | null) => {
     setError(null);
     if (!f) return;
-    
+
     const validTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!validTypes.includes(f.type)) {
       setError(`Invalid file type. Please upload a PNG or JPG image.`);
       return;
     }
-    
+
     try {
       // Client-side image compression
       const options = {
@@ -133,7 +140,7 @@ export function useAnalysis() {
 
   const runAnalysis = useCallback(async (prompt: string) => {
     if (!file || !prompt.trim()) return;
-    
+
     setMessages((prev) => [...prev, { role: "user", text: prompt }]);
     setStatus("running");
     setResult(null);
@@ -159,8 +166,8 @@ export function useAnalysis() {
       setAbortController(controller);
       const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { 
-        method: "POST", 
+      const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, {
+        method: "POST",
         body: formData,
         signal: controller.signal
       }).then(async (res) => {
@@ -181,10 +188,10 @@ export function useAnalysis() {
       const [data] = await Promise.all([fetchAnalysis, minDuration]);
       setResult(data);
       setStatus("done");
-      
+
       setMessages((prev) => {
         const historySnapshot = prev.filter(m => !m.isReport).map(m => ({ role: m.role, text: m.text }));
-        
+
         setTimeout(async () => {
           try {
             setIsStreaming(true);
@@ -197,7 +204,7 @@ export function useAnalysis() {
               signal: streamController.signal
             });
             if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
-            
+
             const reader = res.body?.getReader();
             const decoder = new TextDecoder();
             if (!reader) throw new Error("No readable stream");
@@ -237,16 +244,16 @@ export function useAnalysis() {
       });
       setFile(null);
       setPreviewUrl(null);
-      
+
     } catch (err: any) {
       setStatus("idle");
       setStageIndex(-1);
-      
+
       let friendlyMsg = "Something went wrong while analyzing the image.";
       if (err.name === "AbortError") friendlyMsg = "The request timed out. The server took too long to respond.";
       else if (err instanceof TypeError) friendlyMsg = "Network failure. Could not connect to the backend server.";
       else if (err instanceof Error) friendlyMsg = err.message;
-      
+
       setMessages((prev) => [
         ...prev,
         { role: "assistant", text: `⚠️ Error: ${friendlyMsg}` }
@@ -255,62 +262,43 @@ export function useAnalysis() {
     }
   }, [file]);
 
-  const sendChat = useCallback(async (prompt: string) => {
-    if (!prompt.trim() || !result) return;
-    
-    setMessages((m) => [...m, { role: "user", text: prompt }]);
-    
-    const finalHistory = messages.filter(m => !m.isReport).map((m) => ({ role: m.role, text: m.text }));
+  const askInsight = useCallback(async (question: string) => {
+    if (!question.trim() || !result || insightLoading) return;
+
+    setMessages((m) => [...m, { role: "user", text: question }]);
+    setInsightLoading(true);
 
     try {
-      setIsStreaming(true);
       const controller = new AbortController();
       setAbortController(controller);
-      const res = await fetch(`${API_BASE}/api/chat/stream`, {
+      const res = await fetch(`${API_BASE}/api/insights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: prompt, result, history: [...finalHistory, { role: "user", text: prompt }] }),
+        body: JSON.stringify({
+          question,
+          eo_context: {
+            dominant_land_cover: result.dominant_land_cover,
+            secondary_land_cover: result.secondary_land_cover,
+            confidence: result.confidence,
+            summary: result.summary,
+          }
+        }),
         signal: controller.signal
       });
-      if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("No readable stream");
+      if (!res.ok) throw new Error(`Insights request failed (${res.status})`);
 
-      setMessages((m) => [...m, { role: "assistant", text: "" }]);
-
-      let done = false;
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
-        if (value) {
-          const text = decoder.decode(value, { stream: true });
-          setMessages((m) => {
-            const updated = [...m];
-            const last = updated[updated.length - 1];
-            if (last && last.role === "assistant") {
-              updated[updated.length - 1] = { ...last, text: last.text + text };
-            }
-            return updated;
-          });
-        }
-      }
+      const data = await res.json();
+      setMessages((m) => [...m, { role: "assistant", text: data.answer }]);
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        setMessages((m) => {
-          const last = m[m.length - 1];
-          if (last && last.role === "assistant" && !last.text) {
-            return [...m.slice(0, -1), { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-          }
-          return [...m, { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-        });
+        setMessages((m) => [...m, { role: "assistant", text: `Insight generation is temporarily unavailable.` }]);
       }
     } finally {
-      setIsStreaming(false);
+      setInsightLoading(false);
       setAbortController(null);
     }
-  }, [result, messages]);
+  }, [result, insightLoading]);
 
   const abortRequest = useCallback(() => {
     if (abortController) {
@@ -331,11 +319,12 @@ export function useAnalysis() {
     messages,
     sessions,
     isStreaming,
+    insightLoading,
     handleFile,
     handleReset,
     restoreSession,
     runAnalysis,
-    sendChat,
+    askInsight,
     abortRequest
   };
 }

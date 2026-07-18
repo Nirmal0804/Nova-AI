@@ -23,7 +23,8 @@ function NovaDemo() {
     handleReset,
     restoreSession,
     runAnalysis,
-    sendChat,
+    askInsight,
+    insightLoading,
     abortRequest
   } = useAnalysis();
 
@@ -36,7 +37,7 @@ function NovaDemo() {
     if (file && status !== "running") {
       runAnalysis(prompt);
     } else if (result && status !== "running") {
-      sendChat(prompt);
+      askInsight(prompt);
     }
   };
 
@@ -101,8 +102,8 @@ function NovaDemo() {
                   <div className="cb-input-error">{error}</div>
                 </div>
               )}
-              
-              <ChatInterface 
+
+              <ChatInterface
                 messages={messages}
                 status={status}
                 stageIndex={stageIndex}
@@ -116,6 +117,9 @@ function NovaDemo() {
                 isStreaming={isStreaming}
                 abortRequest={abortRequest}
                 showHistory={showHistory}
+                askInsight={askInsight}
+                insightLoading={insightLoading}
+                handleResetChat={handleResetChat}
               />
             </>
           )}

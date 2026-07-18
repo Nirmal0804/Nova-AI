@@ -14,9 +14,11 @@ function ErrorFallback({ error, resetErrorBoundary }: any) {
 
 interface AnalysisResultsProps {
   result: AnalysisResult;
+  askInsight: (q: string) => void;
+  insightLoading: boolean;
 }
 
-export const AnalysisResults = memo(({ result }: AnalysisResultsProps) => {
+export const AnalysisResults = memo(({ result, askInsight, insightLoading }: AnalysisResultsProps) => {
   const [showMask, setShowMask] = useState(true);
   const [showRaw, setShowRaw] = useState(false);
 
@@ -50,7 +52,7 @@ export const AnalysisResults = memo(({ result }: AnalysisResultsProps) => {
                 <span className="cb-eo-value">{result.geo_metadata?.crs ? String(result.geo_metadata.crs) : "EPSG:4326"}</span>
               </div>
             </div>
-            
+
             <div className="cb-eo-flags">
               {result.flags?.map((f, idx) => (
                 <div key={idx} className="cb-eo-match-row">
@@ -76,81 +78,17 @@ export const AnalysisResults = memo(({ result }: AnalysisResultsProps) => {
           </div>
         )}
 
+        {/* QUICK EO INSIGHTS PANEL */}
         <div className="cb-report-section">
-          <h4 className="cb-section-title">Land Cover Distribution</h4>
-          <div className="cb-classes">
-            {result.classes?.map((c) => (
-              <div className="cb-class-row" key={c.label}>
-                <div className="cb-class-label">
-                  <div className="cb-swatch" style={{ background: c.color }}></div>
-                  <span>{c.label}</span>
-                </div>
-                <div className="cb-class-bar-track">
-                  <div className="cb-class-bar" style={{ width: `${c.pct}%`, background: c.color }}></div>
-                </div>
-                <div className="cb-class-pct">{c.pct}%</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {result.ndvi_score !== undefined && (
-          <div className="cb-report-section">
-            <h4 className="cb-section-title">Vegetation Index (NDVI)</h4>
-            <div className="cb-ndvi-section">
-              <div className="cb-ndvi-score">
-                <div className="cb-ndvi-val" style={{ color: result.ndvi_score > 0.4 ? '#00e5a0' : result.ndvi_score < 0.1 ? '#ff4e6a' : '#ffb84e' }}>
-                  {result.ndvi_score.toFixed(2)}
-                </div>
-                <div className="cb-ndvi-label">Mean NDVI</div>
-              </div>
-              {result.ndvi_heatmap && (
-                <div style={{ flex: 2 }}>
-                  <img src={`data:image/png;base64,${result.ndvi_heatmap}`} alt="NDVI Heatmap" className="cb-chart-img" />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {result.pie_chart && result.bar_chart && (
-          <div className="cb-report-section">
-            <h4 className="cb-section-title">Statistical Analysis</h4>
-            <div className="cb-charts-row">
-              <div className="half">
-                <img src={`data:image/png;base64,${result.pie_chart}`} alt="Pie Chart" className="cb-chart-img" />
-              </div>
-              <div className="half">
-                <img src={`data:image/png;base64,${result.bar_chart}`} alt="Bar Chart" className="cb-chart-img" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="cb-report-section">
-          <h4 className="cb-section-title">Strategic Insights</h4>
+          <h4 className="cb-section-title">Quick EO Insights</h4>
           <div className="cb-insights-grid">
-            {result.use_cases && (
-              <div className="cb-insight-col">
-                <h5 className="cb-insight-heading">Potential Use Cases</h5>
-                <ul className="cb-insight-list">
-                  {result.use_cases.map((uc, i) => (
-                    <li key={i}><strong>{uc.name}</strong>: {uc.rationale}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {result.recommended_actions && (
-              <div className="cb-insight-col">
-                <h5 className="cb-insight-heading">Recommended Actions</h5>
-                <ul className="cb-insight-list">
-                  {result.recommended_actions.map((ra, i) => (
-                    <li key={i}><strong>{ra.audience}</strong>: {ra.action}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <button disabled={insightLoading} onClick={() => askInsight("What does this landscape primarily represent?")}>🌱 What does this landscape primarily represent?</button>
+            <button disabled={insightLoading} onClick={() => askInsight("What environmental characteristics can be inferred?")}>🌿 What environmental characteristics can be inferred?</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Is there evidence of residential or industrial development?")}>🏗 Is there evidence of residential or industrial development?</button>
+            <button disabled={insightLoading} onClick={() => askInsight("Are there any visible environmental risks?")}>⚠ Are there any visible environmental risks?</button>
+            <button disabled={insightLoading} onClick={() => askInsight("What are the key observations?")}>🎯 What are the key observations?</button>
           </div>
+          {insightLoading && <div className="cb-insight-loading"><div className="cb-dot small pulse" /> Generating Insight...</div>}
         </div>
 
         <div className="cb-report-section">
