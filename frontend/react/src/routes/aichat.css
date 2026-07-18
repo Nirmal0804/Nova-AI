@@ -9,7 +9,7 @@ html, body {
   --border: rgba(120, 100, 255, 0.18); --nebula: #6c47ff; --aurora: #00e5c8;
   --star: #f0edff; --muted: rgba(240, 237, 255, 0.55); --dim: rgba(240, 237, 255, 0.28);
   background: var(--void); color: var(--star); font-family: 'Space Grotesk', system-ui, sans-serif;
-  height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
 }
 .cb-root * { box-sizing: border-box; }
 
