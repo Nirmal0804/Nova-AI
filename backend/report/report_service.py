@@ -21,7 +21,7 @@ class ReportService:
             report_model = settings.REPORT_MODEL
             if not report_model:
                 logger.warning("[ReportService] REPORT_MODEL not set. Ensure configuration is correct.")
-                report_model = "anthropic/claude-3.5-sonnet:beta"
+                report_model = "anthropic/claude-3.5-sonnet"
                 
             client.model = report_model
             
