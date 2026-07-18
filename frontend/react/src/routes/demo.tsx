@@ -308,69 +308,6 @@ function NovaDemo() {
                       {/* Rich Report Render */}
                       {m.isReport && result && (
                         <div className="cb-report-card">
-                          <hr className="cb-divider" />
-                          {result.title && (
-                            <div className="cb-report-header">
-                              <h3>{result.title}</h3>
-                              {result.risk_level && (
-                                <span className={`cb-risk-badge ${result.risk_level.toLowerCase()}`}>
-                                  {result.risk_level} Risk
-                                </span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Land Cover Classes */}
-                          {result.classes && result.classes.length > 0 && (
-                            <div className="cb-report-section">
-                              <h4 className="cb-section-title">Land Cover Breakdown</h4>
-                              <div className="cb-classes">
-                                {result.classes.map((c) => (
-                                  <div key={c.label} className="cb-class-row">
-                                    <div className="cb-class-label">
-                                      <span className="cb-swatch" style={{ background: c.color }} />
-                                      {c.label}
-                                    </div>
-                                    <div className="cb-class-bar-track">
-                                      <div className="cb-class-bar" style={{ width: `${c.pct}%`, background: c.color }} />
-                                    </div>
-                                    <div className="cb-class-pct">{c.pct}%</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* NDVI */}
-                          {result.ndvi_score != null && (
-                            <div className="cb-report-section">
-                              <h4 className="cb-section-title">Vegetation Health (NDVI)</h4>
-                              <div className="cb-ndvi-section">
-                                <div className="cb-ndvi-score">
-                                  <div className="cb-ndvi-val" style={{ color: result.ndvi_score > 0.6 ? '#1a9850' : result.ndvi_score > 0.45 ? '#d9ef8b' : result.ndvi_score > 0.3 ? '#fee08b' : '#d73027' }}>
-                                    {result.ndvi_score.toFixed(3)}
-                                  </div>
-                                  <div className="cb-ndvi-label">
-                                    {result.ndvi_score > 0.6 ? 'Dense Vegetation' : result.ndvi_score > 0.45 ? 'Moderate' : result.ndvi_score > 0.3 ? 'Sparse' : 'Low / Barren'}
-                                  </div>
-                                </div>
-                                {result.ndvi_heatmap && (
-                                  <img src={`data:image/png;base64,${result.ndvi_heatmap}`} alt="NDVI heatmap" className="cb-chart-img" />
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Matplotlib Charts */}
-                          {(result.pie_chart || result.bar_chart) && (
-                            <div className="cb-report-section">
-                              <h4 className="cb-section-title">Statistical Charts</h4>
-                              <div className="cb-charts-row">
-                                {result.pie_chart && <img src={`data:image/png;base64,${result.pie_chart}`} alt="Pie chart" className="cb-chart-img half" />}
-                                {result.bar_chart && <img src={`data:image/png;base64,${result.bar_chart}`} alt="Bar chart" className="cb-chart-img half" />}
-                              </div>
-                            </div>
-                          )}
 
                           {/* QUICK EO INSIGHTS PANEL */}
                           <div className="cb-report-section">
@@ -428,48 +365,66 @@ function NovaDemo() {
             )}
             {error && <div className="cb-input-error">⚠️ {error}</div>}
 
-            <div className="cb-input-box">
-              <button
-                className="cb-attach-btn"
-                title="Attach satellite image"
-                onClick={() => document.getElementById("cb-file-input")?.click()}
-              >
-                📎 <span className="cb-attach-text">Attach image</span>
-              </button>
-              <input
-                id="cb-file-input"
-                type="file"
-                accept=".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff"
-                hidden
-                onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-                onClick={(e) => (e.currentTarget.value = "")}
-              />
-              <textarea
-                id="chat-input-textarea"
-                placeholder="Ask me anything..."
-                value={chatInput}
-                onChange={e => {
-                  setChatInput(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                rows={1}
-                disabled={status === "running"}
-              />
-              <button
-                className="cb-submit-btn"
-                disabled={(!chatInput.trim() && !file) || status === "running"}
-                onClick={handleSubmit}
-              >
-                ↑
-              </button>
-            </div>
+            {!(result && !file) && (
+              <div className="cb-input-box">
+                <button
+                  className="cb-attach-btn"
+                  title="Attach satellite image"
+                  onClick={() => document.getElementById("cb-file-input")?.click()}
+                >
+                  📎 <span className="cb-attach-text">Attach image</span>
+                </button>
+                <input
+                  id="cb-file-input"
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff"
+                  hidden
+                  onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+                  onClick={(e) => (e.currentTarget.value = "")}
+                />
+                <textarea
+                  id="chat-input-textarea"
+                  placeholder="Ask me anything..."
+                  value={chatInput}
+                  onChange={e => {
+                    setChatInput(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  rows={1}
+                  disabled={status === "running"}
+                />
+                <button
+                  className="cb-submit-btn"
+                  disabled={(!chatInput.trim() && !file) || status === "running"}
+                  onClick={handleSubmit}
+                >
+                  ↑
+                </button>
+              </div>
+            )}
+
+            {result && !file && (
+              <div className="cb-input-box" style={{ justifyContent: 'center', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+                <button
+                  className="cb-attach-btn"
+                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+                  onClick={() => {
+                    setResult(null);
+                    setMessages([]);
+                    setStatus("idle");
+                  }}
+                >
+                  🔄 Start New Analysis
+                </button>
+              </div>
+            )}
             <div className="cb-footer-text">
               NOVA AI can make mistakes. Verify critical intelligence.
             </div>
