@@ -3,7 +3,7 @@ import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tan
 import { h as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { t as Markdown } from "../_libs/react-markdown+[...].mjs";
 import { t as remarkGfm } from "../_libs/remark-gfm.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/aichat-CzG1HWvJ.js
+//#region node_modules/.nitro/vite/services/ssr/assets/aichat-BLOCa39Q.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var API_BASE = "http://localhost:8000";
@@ -38,6 +38,11 @@ function NovaDemo() {
 	const [error, setError] = (0, import_react.useState)(null);
 	const [messages, setMessages] = (0, import_react.useState)([]);
 	const [chatInput, setChatInput] = (0, import_react.useState)("");
+	const [sessions, setSessions] = (0, import_react.useState)([]);
+	const [showHistory, setShowHistory] = (0, import_react.useState)(false);
+	const [abortController, setAbortController] = (0, import_react.useState)(null);
+	const [isStreaming, setIsStreaming] = (0, import_react.useState)(false);
+	const [showMask, setShowMask] = (0, import_react.useState)(true);
 	const timers = (0, import_react.useRef)([]);
 	const chatEndRef = (0, import_react.useRef)(null);
 	(0, import_react.useEffect)(() => {
@@ -53,13 +58,8 @@ function NovaDemo() {
 	const handleFile = (0, import_react.useCallback)((f) => {
 		setError(null);
 		if (!f) return;
-		if (![
-			"image/png",
-			"image/jpeg",
-			"image/jpg",
-			"image/tiff"
-		].includes(f.type)) {
-			setError(`Invalid file type. Please upload a PNG, JPG, or TIFF image.`);
+		if (!["image/png", "image/jpeg"].includes(f.type)) {
+			setError(`Invalid file type. Please upload a PNG or JPG image.`);
 			return;
 		}
 		if (f.size > 10 * 1024 * 1024) {
@@ -68,6 +68,43 @@ function NovaDemo() {
 		}
 		setFile(f);
 		setPreviewUrl(URL.createObjectURL(f));
+	}, []);
+	const handleReset = (0, import_react.useCallback)(() => {
+		if (messages.length > 0 || result || file) setSessions((prev) => [{
+			id: Date.now(),
+			date: /* @__PURE__ */ new Date(),
+			messages,
+			result,
+			file,
+			previewUrl
+		}, ...prev]);
+		setMessages([]);
+		setFile(null);
+		setPreviewUrl(null);
+		setStatus("idle");
+		setResult(null);
+		setError(null);
+		setStageIndex(-1);
+		setChatInput("");
+		setShowHistory(false);
+		abortController?.abort();
+		setAbortController(null);
+		setIsStreaming(false);
+		timers.current.forEach(clearTimeout);
+		timers.current = [];
+	}, [
+		messages,
+		result,
+		file,
+		previewUrl
+	]);
+	const restoreSession = (0, import_react.useCallback)((s) => {
+		setMessages(s.messages);
+		setResult(s.result);
+		setFile(s.file);
+		setPreviewUrl(s.previewUrl);
+		setStatus(s.result || s.messages.length > 0 ? "done" : "idle");
+		setShowHistory(false);
 	}, []);
 	const runAnalysis = (0, import_react.useCallback)(async (prompt) => {
 		if (!file || !prompt.trim()) return;
@@ -97,8 +134,8 @@ function NovaDemo() {
 		try {
 			const formData = new FormData();
 			formData.append("image", file);
-			formData.append("question", prompt);
 			const controller = new AbortController();
+			setAbortController(controller);
 			const timeoutId = setTimeout(() => controller.abort(), 6e4);
 			const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, {
 				method: "POST",
@@ -121,11 +158,64 @@ function NovaDemo() {
 			const [data] = await Promise.all([fetchAnalysis, minDuration]);
 			setResult(data);
 			setStatus("done");
-			setMessages((prev) => [...prev, {
-				role: "assistant",
-				text: data.insight,
-				isReport: true
-			}]);
+			setMessages((prev) => {
+				const historySnapshot = prev.filter((m) => !m.isReport).map((m) => ({
+					role: m.role,
+					text: m.text
+				}));
+				setTimeout(async () => {
+					try {
+						setIsStreaming(true);
+						const streamController = new AbortController();
+						setAbortController(streamController);
+						const res = await fetch(`${API_BASE}/api/chat/stream`, {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								question: prompt,
+								result: data,
+								history: historySnapshot
+							}),
+							signal: streamController.signal
+						});
+						if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
+						const reader = res.body?.getReader();
+						const decoder = new TextDecoder();
+						if (!reader) throw new Error("No readable stream");
+						setMessages((m) => [...m, {
+							role: "assistant",
+							text: ""
+						}]);
+						let done = false;
+						while (!done) {
+							const { value, done: streamDone } = await reader.read();
+							done = streamDone;
+							if (value) {
+								const text = decoder.decode(value, { stream: true });
+								setMessages((m) => {
+									const updated = [...m];
+									const last = updated[updated.length - 1];
+									if (last && last.role === "assistant" && !last.isReport) updated[updated.length - 1] = {
+										...last,
+										text: last.text + text
+									};
+									return updated;
+								});
+							}
+						}
+					} catch (err) {
+						if (err.name !== "AbortError") console.error("Follow-up chat failed", err);
+					} finally {
+						setIsStreaming(false);
+						setAbortController(null);
+					}
+				}, 50);
+				return [...prev, {
+					role: "assistant",
+					text: data.insight,
+					isReport: true
+				}];
+			});
 			setFile(null);
 			setPreviewUrl(null);
 		} catch (err) {
@@ -149,22 +239,27 @@ function NovaDemo() {
 			text: prompt
 		}]);
 		setChatInput("");
-		const history = messages.filter((m) => !m.isReport).map((m) => ({
+		const finalHistory = messages.filter((m) => !m.isReport).map((m) => ({
 			role: m.role,
 			text: m.text
 		}));
+		const analysisContext = result;
 		try {
+			setIsStreaming(true);
+			const controller = new AbortController();
+			setAbortController(controller);
 			const res = await fetch(`${API_BASE}/api/chat/stream`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					question: prompt,
-					result,
-					history: [...history, {
+					result: analysisContext,
+					history: [...finalHistory, {
 						role: "user",
 						text: prompt
 					}]
-				})
+				}),
+				signal: controller.signal
 			});
 			if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 			const reader = res.body?.getReader();
@@ -191,8 +286,8 @@ function NovaDemo() {
 					});
 				}
 			}
-		} catch {
-			setMessages((m) => {
+		} catch (err) {
+			if (err.name !== "AbortError") setMessages((m) => {
 				const last = m[m.length - 1];
 				if (last && last.role === "assistant" && !last.text) return [...m.slice(0, -1), {
 					role: "assistant",
@@ -203,6 +298,9 @@ function NovaDemo() {
 					text: `Couldn't reach the backend at ${API_BASE} — is it running?`
 				}];
 			});
+		} finally {
+			setIsStreaming(false);
+			setAbortController(null);
 		}
 	}, [result, messages]);
 	const handleSubmit = () => {
@@ -231,11 +329,13 @@ function NovaDemo() {
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 								className: "cb-sidebar-btn active",
 								title: "New Chat",
+								onClick: handleReset,
 								children: "✨"
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
 								className: "cb-sidebar-btn",
 								title: "History",
+								onClick: () => setShowHistory(true),
 								children: "📜"
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
@@ -247,77 +347,116 @@ function NovaDemo() {
 					})
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
 					className: "cb-main",
-					children: [
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("header", {
-							className: "cb-header",
-							children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
-								to: "/",
-								className: "cb-logo-text",
-								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot" }), "NOVA AI"]
-							})
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-							className: "cb-chat-container",
-							children: messages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								className: "cb-welcome",
-								children: [
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-hero-orb orb1" }),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-hero-orb orb2" }),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Hey! NOVA User" }),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: "What can I help you analyze?" }),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										className: "cb-suggestions",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
+						className: "cb-header",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
+							to: "/",
+							className: "cb-logo-text",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot" }), "NOVA AI"]
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+							to: "/",
+							className: "cb-back-link",
+							children: "← Back to overview"
+						})]
+					}), showHistory ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "cb-history-view",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+							className: "cb-history-title",
+							children: "Session History"
+						}), sessions.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							className: "cb-history-empty",
+							children: "No past sessions found."
+						}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							className: "cb-history-list",
+							children: sessions.map((s) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "cb-history-card",
+								onClick: () => restoreSession(s),
+								children: [s.previewUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+									src: s.previewUrl,
+									alt: "Thumbnail",
+									className: "cb-history-thumb"
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "cb-history-info",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "cb-history-date",
+										children: s.date.toLocaleString()
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: "cb-history-desc",
+										children: [s.result?.insight?.slice(0, 60) || s.messages[0]?.text?.slice(0, 60) || "Unfinished Session", "..."]
+									})]
+								})]
+							}, s.id))
+						})]
+					}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+						className: "cb-chat-container",
+						children: messages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "cb-welcome",
+							children: [
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-hero-orb orb1" }),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-hero-orb orb2" }),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { children: "Hey! NOVA User" }),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { children: "What can I help you analyze?" }),
+								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "cb-suggestions",
+									children: [
+										/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+											onClick: () => setSuggestion("Identify flood risks and map water boundaries."),
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "sg-icon",
+												children: "🌊"
+											}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+												className: "sg-text",
+												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Flood Risk" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Analyze water boundaries" })]
+											})]
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+											onClick: () => setSuggestion("Map the land cover and segment urban areas."),
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "sg-icon",
+												children: "🏙️"
+											}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+												className: "sg-text",
+												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Land Cover" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Segment vegetation & urban" })]
+											})]
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+											onClick: () => setSuggestion("Assess crop health using NDVI analysis."),
+											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+												className: "sg-icon",
+												children: "🌾"
+											}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+												className: "sg-text",
+												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Crop Health" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Generate NDVI insights" })]
+											})]
+										})
+									]
+								})
+							]
+						}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "cb-chat-history",
+							children: [
+								messages.map((m, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: `cb-msg-wrapper ${m.role}`,
+									children: [m.role === "assistant" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "cb-msg-avatar",
+										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot small" })
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: `cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`,
 										children: [
-											/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-												onClick: () => setSuggestion("Identify flood risks and map water boundaries."),
-												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-													className: "sg-icon",
-													children: "🌊"
-												}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-													className: "sg-text",
-													children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Flood Risk" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Analyze water boundaries" })]
-												})]
+											m.role === "assistant" && !m.isReport && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+												className: "cb-copy-btn",
+												onClick: () => navigator.clipboard.writeText(m.text),
+												title: "Copy text",
+												children: "📋"
 											}),
-											/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-												onClick: () => setSuggestion("Map the land cover and segment urban areas."),
-												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-													className: "sg-icon",
-													children: "🏙️"
-												}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-													className: "sg-text",
-													children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Land Cover" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Segment vegetation & urban" })]
-												})]
-											}),
-											/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-												onClick: () => setSuggestion("Assess crop health using NDVI analysis."),
-												children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-													className: "sg-icon",
-													children: "🌾"
-												}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-													className: "sg-text",
-													children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", { children: "Crop Health" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { children: "Generate NDVI insights" })]
-												})]
-											})
-										]
-									})
-								]
-							}) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								className: "cb-chat-history",
-								children: [
-									messages.map((m, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										className: `cb-msg-wrapper ${m.role}`,
-										children: [m.role === "assistant" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-											className: "cb-msg-avatar",
-											children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot small" })
-										}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-											className: `cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`,
-											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+											/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 												className: "cb-msg-text cb-markdown",
 												children: m.role === "assistant" && !m.isReport ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Markdown, {
 													remarkPlugins: [remarkGfm],
 													children: m.text
 												}) : m.text
-											}), m.isReport && result && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+											}),
+											m.isReport && result && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 												className: "cb-report-card",
 												children: [
 													/* @__PURE__ */ (0, import_jsx_runtime.jsx)("hr", { className: "cb-divider" }),
@@ -327,6 +466,26 @@ function NovaDemo() {
 															className: `cb-risk-badge ${result.risk_level.toLowerCase()}`,
 															children: [result.risk_level, " Risk"]
 														})]
+													}),
+													previewUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+														className: "cb-report-image-container",
+														children: [
+															/* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+																src: previewUrl,
+																alt: "Analyzed scene",
+																className: "cb-report-base-image"
+															}),
+															result.mask_image && showMask && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+																src: `data:image/png;base64,${result.mask_image}`,
+																alt: "Segmentation mask",
+																className: "cb-mask-overlay"
+															}),
+															result.mask_image && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+																className: "cb-mask-toggle",
+																onClick: () => setShowMask(!showMask),
+																children: showMask ? "Hide SegMap" : "Show SegMap"
+															})
+														]
 													}),
 													result.classes && result.classes.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 														className: "cb-report-section",
@@ -362,10 +521,10 @@ function NovaDemo() {
 																		className: "cb-eo-item",
 																		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
 																			className: "cb-eo-label",
-																			children: "Confidence"
+																			children: "Coverage"
 																		}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
 																			className: "cb-eo-value",
-																			children: result.classes[0]?.pct > 65 ? "High" : result.classes[0]?.pct > 40 ? "Medium" : "Low"
+																			children: result.classes[0]?.pct ? `${result.classes[0].pct}%` : "N/A"
 																		})]
 																	})
 																]
@@ -374,16 +533,59 @@ function NovaDemo() {
 																children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 																	className: "cb-eo-label",
 																	style: { marginBottom: "10px" },
-																	children: "Top Similarity Matches"
+																	children: "Area Breakdown"
 																}), result.classes.slice(0, 4).map((c) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 																	className: "cb-eo-match-row",
-																	children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: c.label }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+																	children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: c.label }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
 																		className: "cb-eo-match-score",
-																		children: (c.pct / 100).toFixed(2)
+																		children: [c.pct, "%"]
 																	})]
 																}, c.label))]
 															})]
 														})]
+													}),
+													result.use_cases?.length || result.recommended_actions?.length ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+														className: "cb-report-section",
+														children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", {
+															className: "cb-section-title",
+															children: "Strategic Insights"
+														}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+															className: "cb-insights-grid",
+															children: [result.use_cases && result.use_cases.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+																className: "cb-insight-col",
+																children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h5", {
+																	className: "cb-insight-heading",
+																	children: "Use Cases"
+																}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+																	className: "cb-insight-list",
+																	children: result.use_cases.map((uc, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+																		/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("strong", { children: [uc.name, ":"] }),
+																		" ",
+																		uc.rationale
+																	] }, i))
+																})]
+															}), result.recommended_actions && result.recommended_actions.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+																className: "cb-insight-col",
+																children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h5", {
+																	className: "cb-insight-heading",
+																	children: "Recommended Actions"
+																}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+																	className: "cb-insight-list",
+																	children: result.recommended_actions.map((ra, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+																		/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("strong", { children: [ra.audience, ":"] }),
+																		" ",
+																		ra.action
+																	] }, i))
+																})]
+															})]
+														})]
+													}) : null,
+													/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+														className: "cb-report-section",
+														children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", {
+															className: "cb-raw-json",
+															children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("summary", { children: "View Raw JSON" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: JSON.stringify(result, null, 2) })]
+														})
 													}),
 													result.classes && result.classes.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 														className: "cb-report-section",
@@ -419,166 +621,129 @@ function NovaDemo() {
 																]
 															}, c.label))
 														})]
-													}),
-													result.ndvi_score != null && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-														className: "cb-report-section",
-														children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", {
-															className: "cb-section-title",
-															children: "Vegetation Health (NDVI)"
-														}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-															className: "cb-ndvi-section",
-															children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-																className: "cb-ndvi-score",
-																children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-																	className: "cb-ndvi-val",
-																	style: { color: result.ndvi_score > .6 ? "#1a9850" : result.ndvi_score > .45 ? "#d9ef8b" : result.ndvi_score > .3 ? "#fee08b" : "#d73027" },
-																	children: result.ndvi_score.toFixed(3)
-																}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-																	className: "cb-ndvi-label",
-																	children: result.ndvi_score > .6 ? "Dense Vegetation" : result.ndvi_score > .45 ? "Moderate" : result.ndvi_score > .3 ? "Sparse" : "Low / Barren"
-																})]
-															}), result.ndvi_heatmap && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
-																src: `data:image/png;base64,${result.ndvi_heatmap}`,
-																alt: "NDVI heatmap",
-																className: "cb-chart-img"
-															})]
-														})]
-													}),
-													(result.pie_chart || result.bar_chart) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-														className: "cb-report-section",
-														children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h4", {
-															className: "cb-section-title",
-															children: "Statistical Charts"
-														}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-															className: "cb-charts-row",
-															children: [result.pie_chart && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
-																src: `data:image/png;base64,${result.pie_chart}`,
-																alt: "Pie chart",
-																className: "cb-chart-img half"
-															}), result.bar_chart && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
-																src: `data:image/png;base64,${result.bar_chart}`,
-																alt: "Bar chart",
-																className: "cb-chart-img half"
-															})]
-														})]
 													})
 												]
-											})]
-										})]
-									}, i)),
-									status === "running" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-										className: "cb-msg-wrapper assistant",
-										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-											className: "cb-msg-avatar",
-											children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot small pulse" })
-										}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-											className: "cb-msg-bubble assistant loading",
-											children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-												className: "cb-pipeline",
-												children: PIPELINE_STAGES.map((s, i) => {
-													const stateCls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
-													return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-														className: `cb-stage ${stateCls}`,
-														children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-															className: "cb-stage-icon",
-															children: stateCls === "done" ? "✓" : s.icon
-														}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: s.title })]
-													}, s.title);
-												})
 											})
-										})]
-									}),
-									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { ref: chatEndRef })
-								]
-							})
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-							className: "cb-input-area",
-							children: [
-								previewUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-									className: "cb-attachment-preview",
-									children: [
-										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
-											src: previewUrl,
-											alt: "Attachment"
-										}),
-										/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-											className: "cb-attachment-info",
-											children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-												className: "cb-attachment-name",
-												children: file?.name
-											}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
-												className: "cb-attachment-size",
-												children: [((file?.size || 0) / 1024 / 1024).toFixed(2), " MB"]
-											})]
-										}),
-										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-											className: "cb-attachment-remove",
-											onClick: () => {
-												setFile(null);
-												setPreviewUrl(null);
-											},
-											children: "✕"
+										]
+									})]
+								}, i)),
+								status === "running" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									className: "cb-msg-wrapper assistant",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "cb-msg-avatar",
+										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "cb-dot small pulse" })
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "cb-msg-bubble assistant loading",
+										children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+											className: "cb-pipeline",
+											children: PIPELINE_STAGES.map((s, i) => {
+												const stateCls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
+												return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+													className: `cb-stage ${stateCls}`,
+													children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+														className: "cb-stage-icon",
+														children: stateCls === "done" ? "✓" : s.icon
+													}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: s.title })]
+												}, s.title);
+											})
 										})
-									]
+									})]
 								}),
-								error && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-									className: "cb-input-error",
-									children: ["⚠️ ", error]
-								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-									className: "cb-input-box",
-									children: [
-										/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
-											className: "cb-attach-btn",
-											title: "Attach satellite image",
-											onClick: () => document.getElementById("cb-file-input")?.click(),
-											children: ["📎 ", /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
-												className: "cb-attach-text",
-												children: "Attach"
-											})]
-										}),
-										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
-											id: "cb-file-input",
-											type: "file",
-											accept: ".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff",
-											hidden: true,
-											onChange: (e) => handleFile(e.target.files?.[0] ?? null),
-											onClick: (e) => e.currentTarget.value = ""
-										}),
-										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", {
-											id: "chat-input-textarea",
-											placeholder: "Ask me anything...",
-											value: chatInput,
-											onChange: (e) => {
-												setChatInput(e.target.value);
-												e.target.style.height = "auto";
-												e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
-											},
-											onKeyDown: (e) => {
-												if (e.key === "Enter" && !e.shiftKey) {
-													e.preventDefault();
-													handleSubmit();
-												}
-											},
-											rows: 1,
-											disabled: status === "running"
-										}),
-										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-											className: "cb-submit-btn",
-											disabled: !chatInput.trim() && !file || status === "running",
-											onClick: handleSubmit,
-											children: "↑"
-										})
-									]
-								}),
-								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-									className: "cb-footer-text",
-									children: "NOVA AI can make mistakes. Verify critical intelligence."
-								})
+								/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { ref: chatEndRef })
 							]
 						})
-					]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "cb-input-area",
+						children: [
+							previewUrl && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "cb-attachment-preview",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", {
+										src: previewUrl,
+										alt: "Attachment"
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+										className: "cb-attachment-info",
+										children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "cb-attachment-name",
+											children: file?.name
+										}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+											className: "cb-attachment-size",
+											children: [((file?.size || 0) / 1024 / 1024).toFixed(2), " MB"]
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+										className: "cb-attachment-remove",
+										onClick: () => {
+											setFile(null);
+											setPreviewUrl(null);
+										},
+										children: "✕"
+									})
+								]
+							}),
+							error && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "cb-input-error",
+								children: ["⚠️ ", error]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "cb-input-box",
+								children: [
+									/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+										className: "cb-attach-btn",
+										title: "Attach satellite image",
+										onClick: () => document.getElementById("cb-file-input")?.click(),
+										children: ["📎 ", /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "cb-attach-text",
+											children: "Attach"
+										})]
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+										id: "cb-file-input",
+										type: "file",
+										accept: ".png,.jpg,.jpeg,image/png,image/jpeg",
+										hidden: true,
+										onChange: (e) => handleFile(e.target.files?.[0] ?? null),
+										onClick: (e) => e.currentTarget.value = ""
+									}),
+									/* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", {
+										id: "chat-input-textarea",
+										placeholder: "Ask me anything...",
+										value: chatInput,
+										onChange: (e) => {
+											setChatInput(e.target.value);
+											e.target.style.height = "auto";
+											e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+										},
+										onKeyDown: (e) => {
+											if (e.key === "Enter" && !e.shiftKey) {
+												e.preventDefault();
+												if (!isStreaming && status !== "running") handleSubmit();
+											}
+										},
+										rows: 1,
+										disabled: status === "running"
+									}),
+									isStreaming || status === "running" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+										className: "cb-submit-btn cb-stop-btn",
+										onClick: () => abortController?.abort(),
+										title: "Stop generating",
+										children: "■"
+									}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+										className: "cb-submit-btn",
+										disabled: !chatInput.trim() && !file || status === "running",
+										onClick: handleSubmit,
+										title: "Send message",
+										children: "↑"
+									})
+								]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+								className: "cb-footer-text",
+								children: "NOVA AI can make mistakes. Verify critical intelligence."
+							})
+						]
+					})] })]
 				})]
 			})
 		]
@@ -618,6 +783,8 @@ var css = `
 .cb-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
 .cb-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; }
 .cb-logo-text { font-family: 'Space Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--aurora); letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.cb-back-link { font-size: 0.85rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.cb-back-link:hover { color: var(--star); }
 
 .cb-chat-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 0 24px; }
 
@@ -693,9 +860,52 @@ var css = `
 .cb-class-row { display: grid; grid-template-columns: 140px 1fr 50px; align-items: center; gap: 12px; font-size: 0.85rem; }
 .cb-class-label { display: flex; align-items: center; gap: 8px; color: var(--star); }
 .cb-swatch { width: 10px; height: 10px; border-radius: 2px; }
-.cb-class-bar-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); }
-.cb-class-bar { height: 100%; border-radius: 4px; }
-.cb-class-pct { font-family: 'Space Mono', monospace; color: var(--muted); text-align: right; }
+.cb-class-bar-track { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+.cb-class-bar { height: 100%; border-radius: 3px; }
+.cb-class-pct { text-align: right; color: var(--muted); font-family: 'Space Mono', monospace; }
+
+/* Strategic Insights */
+.cb-insights-grid { display: flex; flex-direction: column; gap: 16px; }
+.cb-insight-col { background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.cb-insight-heading { margin: 0 0 12px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--aurora); font-family: 'Space Mono', monospace; }
+.cb-insight-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.cb-insight-list li { font-size: 0.9rem; line-height: 1.5; color: var(--star); }
+.cb-insight-list li strong { color: #fff; }
+
+/* History View */
+.cb-history-view { flex: 1; padding: 32px; overflow-y: auto; }
+.cb-history-title { font-family: 'Space Mono', monospace; color: var(--aurora); margin-top: 0; margin-bottom: 24px; font-size: 1.25rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; }
+.cb-history-empty { color: var(--muted); font-size: 0.95rem; text-align: center; margin-top: 64px; }
+.cb-history-list { display: flex; flex-direction: column; gap: 16px; max-width: 600px; margin: 0 auto; }
+.cb-history-card { display: flex; gap: 16px; background: var(--card); border: 1px solid var(--border); padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s; align-items: center; }
+.cb-history-card:hover { border-color: var(--aurora); transform: translateY(-2px); box-shadow: 0 4px 24px rgba(0,229,200,0.1); }
+.cb-history-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #000; }
+.cb-history-info { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+.cb-history-date { font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+.cb-history-desc { font-size: 0.95rem; color: var(--star); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Copy Button */
+.cb-msg-bubble { position: relative; }
+.cb-copy-btn { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: all 0.2s; opacity: 0; line-height: 1; }
+.cb-msg-bubble:hover .cb-copy-btn { opacity: 1; }
+.cb-copy-btn:hover { color: var(--aurora); border-color: var(--aurora); background: rgba(0,229,200,0.1); }
+
+/* Raw JSON Details */
+.cb-raw-json { border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.3); }
+.cb-raw-json summary { font-size: 0.85rem; color: var(--muted); cursor: pointer; font-family: 'Space Mono', monospace; text-transform: uppercase; user-select: none; }
+.cb-raw-json summary:hover { color: var(--aurora); }
+.cb-raw-json pre { margin: 12px 0 0 0; padding-top: 12px; border-top: 1px dashed var(--border); font-size: 0.8rem; color: var(--star); font-family: 'Space Mono', monospace; white-space: pre-wrap; word-wrap: break-word; overflow-x: hidden; max-height: 300px; overflow-y: auto; }
+
+/* SegMap Overlay */
+.cb-report-image-container { position: relative; width: 100%; max-height: 400px; border-radius: 12px; overflow: hidden; margin-bottom: 24px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: #000; }
+.cb-report-base-image { width: 100%; height: 100%; object-fit: contain; }
+.cb-mask-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.65; mix-blend-mode: screen; pointer-events: none; }
+.cb-mask-toggle { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; font-size: 0.8rem; padding: 6px 12px; cursor: pointer; backdrop-filter: blur(4px); font-family: 'Space Mono', monospace; transition: all 0.2s; }
+.cb-mask-toggle:hover { background: rgba(0,0,0,0.9); border-color: var(--aurora); color: var(--aurora); }
+
+/* Stop Button */
+.cb-stop-btn { font-size: 0.9rem !important; }
+.cb-stop-btn:hover { background: rgba(255,50,50,0.2) !important; color: #ff5555 !important; border-color: #ff5555 !important; }
 
 .cb-ndvi-section { display: flex; gap: 16px; align-items: center; }
 .cb-ndvi-score { flex: 1; background: rgba(26,152,80,0.1); border: 1px solid rgba(26,152,80,0.3); padding: 16px; border-radius: 12px; text-align: center; }

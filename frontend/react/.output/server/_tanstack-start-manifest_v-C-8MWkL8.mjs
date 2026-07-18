@@ -1,24 +1,24 @@
-//#region node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-DXeCQG8h.js
+//#region node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-C-8MWkL8.js
 var tsrStartManifest = () => ({ routes: {
 	__root__: {
 		filePath: "D:/Coding/Projects/Hackathon/Nova-AI/frontend/react/src/routes/__root.tsx",
 		children: ["/", "/aichat"],
-		preloads: ["/assets/index-D75gIt--.js"],
+		preloads: ["/assets/index-DRHSuJpK.js"],
 		scripts: [{ attrs: {
 			type: "module",
 			async: !0,
-			src: "/assets/index-D75gIt--.js"
+			src: "/assets/index-DRHSuJpK.js"
 		} }]
 	},
 	"/": {
 		filePath: "D:/Coding/Projects/Hackathon/Nova-AI/frontend/react/src/routes/index.tsx",
 		children: void 0,
-		preloads: ["/assets/routes-C6Dq8Y-4.js"]
+		preloads: ["/assets/routes-CLK8pwnr.js"]
 	},
 	"/aichat": {
 		filePath: "D:/Coding/Projects/Hackathon/Nova-AI/frontend/react/src/routes/aichat.tsx",
 		children: void 0,
-		preloads: ["/assets/aichat-LRYps2cS.js"]
+		preloads: ["/assets/aichat-C1wEIjhQ.js"]
 	}
 } });
 //#endregion
