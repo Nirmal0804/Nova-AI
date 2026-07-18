@@ -189,10 +189,15 @@ function NovaLanding() {
           </div>
         </div>
 
-        <a href="#solution" className="scroll-hint">
+        <div 
+          className="scroll-hint" 
+          onClick={() => document.getElementById('solution')?.scrollIntoView({ behavior: 'smooth' })}
+          role="button"
+          tabIndex={0}
+        >
           <span>SCROLL</span>
           <div className="scroll-bar"><div /></div>
-        </a>
+        </div>
       </section>
 
       <div className="marquee">
@@ -368,13 +373,11 @@ const css = `
   font-size: 16px;
   line-height: 1.65;
   min-height: 100vh;
-  overflow-x: hidden;
   position: relative;
 }
 .nova-root * { box-sizing: border-box; }
 .nova-root h1, .nova-root h2, .nova-root h3, .nova-root p, .nova-root ul { margin: 0; padding: 0; }
 .nova-root ul { list-style: none; }
-html { scroll-behavior: smooth; }
 
 /* progress bar */
 .nova-progress {
@@ -629,8 +632,9 @@ html { scroll-behavior: smooth; }
 
 /* solution */
 #solution { padding: 110px 40px; background: var(--deep); position: relative; }
-.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+.flow { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
 .flow-step {
+  flex: 1 1 180px; max-width: 240px;
   background: linear-gradient(180deg, var(--card), var(--surface));
   border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px;
   text-align: center; transition: border-color 0.2s, transform 0.2s;
@@ -717,7 +721,8 @@ footer span { color: var(--aurora); }
     padding-left: 20px; padding-right: 20px;
   }
   .tech-grid { grid-template-columns: 1fr; }
-  .flow { grid-template-columns: 1fr; gap: 16px; }
+  .flow { flex-direction: column; align-items: stretch; gap: 16px; }
+  .flow-step { max-width: none; }
   .scroll-hint { display: none; }
 }
 `
