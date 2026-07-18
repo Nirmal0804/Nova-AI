@@ -67,6 +67,7 @@ function NovaDemo() {
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [stageIndex, setStageIndex] = useState(-1);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -88,14 +89,27 @@ function NovaDemo() {
   }, []);
 
   const handleFile = useCallback((f: File | null) => {
+    setError(null);
     if (!f) return;
-    if (!f.type.startsWith("image/")) return;
+    
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/tiff"];
+    if (!validTypes.includes(f.type)) {
+      setError(`Invalid file type. Please upload a PNG, JPG, or TIFF image.`);
+      return;
+    }
+    
+    if (f.size > 10 * 1024 * 1024) {
+      setError(`File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Max size is 10MB.`);
+      return;
+    }
+
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
     setStatus("idle");
     setResult(null);
     setMessages([]);
     setStageIndex(-1);
+    setUploadProgress(0);
   }, []);
 
   const runAnalysis = useCallback(async () => {
@@ -104,13 +118,25 @@ function NovaDemo() {
     setResult(null);
     setError(null);
     setStageIndex(0);
+    setUploadProgress(0);
     timers.current.forEach(clearTimeout);
     timers.current = [];
+
+    const progressInterval = setInterval(() => {
+      setUploadProgress(p => {
+        if (p >= 100) {
+          clearInterval(progressInterval);
+          return 100;
+        }
+        return Math.min(p + 12, 100);
+      });
+    }, 100);
+    timers.current.push(progressInterval as any);
 
     // Advance through the first three stages on a fixed timer for visual
     // pacing; the real network request runs in parallel underneath.
     [1, 2, 3].forEach((i) => {
-      const t = setTimeout(() => setStageIndex(i), i * 550);
+      const t = setTimeout(() => setStageIndex(i), i * 700);
       timers.current.push(t);
     });
     const minDuration = new Promise((resolve) => {
@@ -241,9 +267,33 @@ function NovaDemo() {
                 handleFile(e.dataTransfer.files?.[0] ?? null);
               }}
               onClick={() => document.getElementById("nd-file-input")?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  document.getElementById("nd-file-input")?.click();
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-label="Upload satellite image"
             >
               {previewUrl ? (
                 <div className="nd-img-stack">
+                  <button 
+                    className="nd-remove-btn" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setFile(null); 
+                      setPreviewUrl(null); 
+                      setResult(null);
+                      setStatus("idle");
+                      setError(null);
+                    }}
+                    title="Remove image"
+                    aria-label="Remove image"
+                  >
+                    ✕
+                  </button>
                   {viewMode === "original" && (
                     <img src={previewUrl} alt="Uploaded satellite scene" />
                   )}
@@ -272,9 +322,10 @@ function NovaDemo() {
               <input
                 id="nd-file-input"
                 type="file"
-                accept="image/*"
+                accept=".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff"
                 hidden
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+                onClick={(e) => (e.currentTarget.value = "")}
               />
             </div>
 
@@ -314,7 +365,14 @@ function NovaDemo() {
 
             {file && (
               <div className="nd-filename">
-                📎 {file.name} <span>({(file.size / 1024).toFixed(0)} KB)</span>
+                📎 {file.name} <span>({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+              </div>
+            )}
+
+            {status === "running" && uploadProgress < 100 && (
+              <div className="nd-upload-progress">
+                <div className="nd-upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+                <span className="nd-upload-progress-text">{uploadProgress}% Uploaded</span>
               </div>
             )}
 
@@ -733,6 +791,14 @@ const css = `
 .nd-filename { margin-top: 12px; font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
 .nd-filename span { color: var(--dim); }
 .nd-error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.82rem; border: 1px solid rgba(255,78,106,0.4); background: rgba(255,78,106,0.08); color: #ffb3c0; }
+
+.nd-upload-progress { margin-top: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; height: 16px; position: relative; overflow: hidden; border: 1px solid var(--border); }
+.nd-upload-progress-bar { height: 100%; background: linear-gradient(90deg, var(--nebula), var(--aurora)); transition: width 0.15s ease-out; }
+.nd-upload-progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-family: 'Space Mono', monospace; color: white; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+.nd-remove-btn { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(4px); transition: all 0.2s; }
+.nd-remove-btn:hover { background: rgba(255,78,106,0.8); border-color: #ff4e6a; transform: scale(1.1); }
+.nd-drop:focus-visible { outline: 2px solid var(--aurora); outline-offset: 4px; }
 
 .nd-pipeline { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
 .nd-stage { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); opacity: 0.4; transition: opacity 0.3s, border-color 0.3s; }
