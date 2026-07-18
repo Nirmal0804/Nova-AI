@@ -51,6 +51,16 @@ export const AnalysisResults = memo(({ result, askInsight, insightLoading }: Ana
                 <span className="cb-eo-label">Projection</span>
                 <span className="cb-eo-value">{result.geo_metadata?.crs ? String(result.geo_metadata.crs) : "EPSG:4326"}</span>
               </div>
+              <div className="cb-eo-item" style={{ gridColumn: "1 / -1" }}>
+                <span className="cb-eo-label">Primary Land Cover</span>
+                <span className="cb-eo-value" style={{ textTransform: "capitalize", color: "var(--nova-blue)" }}>{result.dominant_land_cover || "N/A"}</span>
+              </div>
+              {(result.secondary_land_cover && result.secondary_land_cover !== "none") && (
+                <div className="cb-eo-item" style={{ gridColumn: "1 / -1" }}>
+                  <span className="cb-eo-label">Secondary Features</span>
+                  <span className="cb-eo-value" style={{ textTransform: "capitalize" }}>{result.secondary_land_cover}</span>
+                </div>
+              )}
             </div>
 
             <div className="cb-eo-flags">
