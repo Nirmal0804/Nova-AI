@@ -73,6 +73,9 @@ function NovaDemo() {
   const [chatInput, setChatInput] = useState("");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [showMask, setShowMask] = useState(true);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
@@ -124,6 +127,9 @@ function NovaDemo() {
     setStageIndex(-1);
     setChatInput("");
     setShowHistory(false);
+    abortController?.abort();
+    setAbortController(null);
+    setIsStreaming(false);
     timers.current.forEach(clearTimeout);
     timers.current = [];
   }, [messages, result, file, previewUrl]);
@@ -166,6 +172,7 @@ function NovaDemo() {
       // Removed formData.append("question", prompt) to force cheap fix
 
       const controller = new AbortController();
+      setAbortController(controller);
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
       const fetchAnalysis = fetch(`${API_BASE}/api/analyze`, { 
@@ -200,10 +207,14 @@ function NovaDemo() {
         // --- Cheap Fix: Ask the LLM the user's actual question ---
         setTimeout(async () => {
           try {
+            setIsStreaming(true);
+            const streamController = new AbortController();
+            setAbortController(streamController);
             const res = await fetch(`${API_BASE}/api/chat/stream`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ question: prompt, result: data, history: historySnapshot }),
+              signal: streamController.signal
             });
             if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
             
@@ -229,8 +240,13 @@ function NovaDemo() {
                 });
               }
             }
-          } catch (err) {
-            console.error("Follow-up chat failed", err);
+          } catch (err: any) {
+            if (err.name !== "AbortError") {
+              console.error("Follow-up chat failed", err);
+            }
+          } finally {
+            setIsStreaming(false);
+            setAbortController(null);
           }
         }, 50);
 
@@ -267,13 +283,18 @@ function NovaDemo() {
     setChatInput("");
     
     // Exclude the initial rich report from standard text history for the stream
-    const history = messages.filter(m => !m.isReport).map((m) => ({ role: m.role, text: m.text }));
+    const finalHistory = messages.filter(m => !m.isReport).map((m) => ({ role: m.role, text: m.text }));
+    const analysisContext = result;
 
     try {
+      setIsStreaming(true);
+      const controller = new AbortController();
+      setAbortController(controller);
       const res = await fetch(`${API_BASE}/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: prompt, result, history: [...history, { role: "user", text: prompt }] }),
+        body: JSON.stringify({ question: prompt, result: analysisContext, history: [...finalHistory, { role: "user", text: prompt }] }),
+        signal: controller.signal
       });
       if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 
@@ -299,14 +320,19 @@ function NovaDemo() {
           });
         }
       }
-    } catch {
-      setMessages((m) => {
-        const last = m[m.length - 1];
-        if (last && last.role === "assistant" && !last.text) {
-          return [...m.slice(0, -1), { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-        }
-        return [...m, { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
-      });
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last && last.role === "assistant" && !last.text) {
+            return [...m.slice(0, -1), { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
+          }
+          return [...m, { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
+        });
+      }
+    } finally {
+      setIsStreaming(false);
+      setAbortController(null);
     }
   }, [result, messages]);
 
@@ -444,6 +470,20 @@ function NovaDemo() {
                                   {result.risk_level} Risk
                                 </span>
                               )}
+                            </div>
+                          )}
+
+                          {previewUrl && (
+                            <div className="cb-report-image-container">
+                               <img src={previewUrl} alt="Analyzed scene" className="cb-report-base-image" />
+                               {result.mask_image && showMask && (
+                                 <img src={`data:image/png;base64,${result.mask_image}`} alt="Segmentation mask" className="cb-mask-overlay" />
+                               )}
+                               {result.mask_image && (
+                                 <button className="cb-mask-toggle" onClick={() => setShowMask(!showMask)}>
+                                   {showMask ? "Hide SegMap" : "Show SegMap"}
+                                 </button>
+                               )}
                             </div>
                           )}
                           
@@ -612,19 +652,30 @@ function NovaDemo() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    handleSubmit();
+                    if (!isStreaming && status !== "running") handleSubmit();
                   }
                 }}
                 rows={1}
                 disabled={status === "running"}
               />
-              <button 
-                className="cb-submit-btn" 
-                disabled={(!chatInput.trim() && !file) || status === "running"}
-                onClick={handleSubmit}
-              >
-                ↑
-              </button>
+              {isStreaming || status === "running" ? (
+                <button 
+                  className="cb-submit-btn cb-stop-btn" 
+                  onClick={() => abortController?.abort()}
+                  title="Stop generating"
+                >
+                  ■
+                </button>
+              ) : (
+                <button 
+                  className="cb-submit-btn" 
+                  disabled={(!chatInput.trim() && !file) || status === "running"}
+                  onClick={handleSubmit}
+                  title="Send message"
+                >
+                  ↑
+                </button>
+              )}
             </div>
             <div className="cb-footer-text">
               NOVA AI can make mistakes. Verify critical intelligence.
@@ -782,6 +833,17 @@ const css = `
 .cb-raw-json summary { font-size: 0.85rem; color: var(--muted); cursor: pointer; font-family: 'Space Mono', monospace; text-transform: uppercase; user-select: none; }
 .cb-raw-json summary:hover { color: var(--aurora); }
 .cb-raw-json pre { margin: 12px 0 0 0; padding-top: 12px; border-top: 1px dashed var(--border); font-size: 0.8rem; color: var(--star); font-family: 'Space Mono', monospace; white-space: pre-wrap; word-wrap: break-word; overflow-x: hidden; max-height: 300px; overflow-y: auto; }
+
+/* SegMap Overlay */
+.cb-report-image-container { position: relative; width: 100%; max-height: 400px; border-radius: 12px; overflow: hidden; margin-bottom: 24px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; background: #000; }
+.cb-report-base-image { width: 100%; height: 100%; object-fit: contain; }
+.cb-mask-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.65; mix-blend-mode: screen; pointer-events: none; }
+.cb-mask-toggle { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; font-size: 0.8rem; padding: 6px 12px; cursor: pointer; backdrop-filter: blur(4px); font-family: 'Space Mono', monospace; transition: all 0.2s; }
+.cb-mask-toggle:hover { background: rgba(0,0,0,0.9); border-color: var(--aurora); color: var(--aurora); }
+
+/* Stop Button */
+.cb-stop-btn { font-size: 0.9rem !important; }
+.cb-stop-btn:hover { background: rgba(255,50,50,0.2) !important; color: #ff5555 !important; border-color: #ff5555 !important; }
 
 .cb-ndvi-section { display: flex; gap: 16px; align-items: center; }
 .cb-ndvi-score { flex: 1; background: rgba(26,152,80,0.1); border: 1px solid rgba(26,152,80,0.3); padding: 16px; border-radius: 12px; text-align: center; }
