@@ -681,6 +681,8 @@ function NovaDemo() {
               NOVA AI can make mistakes. Verify critical intelligence.
             </div>
           </div>
+        </>
+        )}
         </main>
       </div>
     </div>
