@@ -407,7 +407,7 @@ html { scroll-behavior: smooth; }
   animation: nova-shine 6s linear infinite;
 }
 @keyframes nova-shine { to { background-position: 200% 0; } }
-.hero-sub { color: var(--muted); font-size: 1.05rem; max-width: 460px; margin-bottom: 36px; }
+.nova-root .hero-sub { color: var(--muted); font-size: 1.05rem; max-width: 460px; margin-bottom: 36px; }
 .hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
 .btn {
   padding: 13px 28px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif;
@@ -516,7 +516,7 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 14px;
 }
 .nova-root h2 { font-size: clamp(1.9rem, 3vw, 2.6rem); font-weight: 700; letter-spacing: -0.015em; }
-.section-sub { color: var(--muted); margin: 14px auto 0; max-width: 540px; }
+.nova-root .section-sub { color: var(--muted); margin: 14px auto 0; max-width: 540px; }
 
 /* cursor spotlight */
 .nova-spot { position: relative; }
