@@ -6,7 +6,7 @@ These models represent the final API shapes returned to the frontend.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, List, Any
 
 
 class AnalysisMetadata(BaseModel):
@@ -21,6 +21,20 @@ class AnalysisMetadata(BaseModel):
     version: str = Field(default="1.0", description="API response schema version.")
 
 
+class LandCoverClass(BaseModel):
+    """A single classified land-cover category with color and percentage."""
+    label: str
+    pct: float
+    color: str
+
+
+class AnalysisFlag(BaseModel):
+    """An informational, warning, or danger flag surfaced for the frontend."""
+    icon: str
+    label: str
+    level: str  # "info" | "warning" | "danger"
+
+
 class AnalysisResponse(BaseModel):
     """
     Unified production response for POST /api/analyze.
@@ -30,14 +44,18 @@ class AnalysisResponse(BaseModel):
     - Rule-based scene summary from the interpreter
     - GPT-generated analyst report (or null with a warning if LLM unavailable)
     - Request metadata (model provenance, timing, timestamp)
+    - Frontend-compatible fields: insight, classes, flags, title, risk_level
 
     Raw vision-layer internals (embeddings, cosine similarities, logits)
     are NOT included here — they remain exclusive to /api/vision/test.
     """
+    # --- Pipeline status ---
     status: str = Field(
         ...,
         description="Pipeline outcome: 'success' or 'partial_success' (GPT unavailable)."
     )
+
+    # --- EO Classification ---
     dominant_land_cover: str = Field(
         ...,
         description="The primary mapped Earth Observation category detected in the image."
@@ -62,6 +80,30 @@ class AnalysisResponse(BaseModel):
         None,
         description="Present when status is 'partial_success'. Describes why GPT was skipped."
     )
+
+    # --- Frontend-compatible fields (mirrors the existing UI contract) ---
+    insight: str = Field(
+        ...,
+        description="Short human-readable insight shown in the chat UI (same as summary or GPT excerpt)."
+    )
+    classes: List[LandCoverClass] = Field(
+        default_factory=list,
+        description="Land-cover classes with percentage breakdown for the bar chart."
+    )
+    flags: List[AnalysisFlag] = Field(
+        default_factory=list,
+        description="Informational flags surfaced to the frontend UI."
+    )
+    title: Optional[str] = Field(
+        None,
+        description="Short title for the analysis report card."
+    )
+    risk_level: Optional[str] = Field(
+        None,
+        description="Qualitative risk level: Low | Medium | High."
+    )
+
+    # --- Metadata ---
     metadata: AnalysisMetadata = Field(
         ...,
         description="Request-level provenance, model info, and performance metrics."

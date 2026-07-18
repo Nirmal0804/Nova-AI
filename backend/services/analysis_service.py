@@ -38,7 +38,12 @@ from backend.schemas.prompt import EOContext
 from backend.llm.gpt_service import GPTService
 from backend.llm.openrouter import OpenRouterClient
 
-from backend.schemas.analysis import AnalysisResponse, AnalysisMetadata
+from backend.schemas.analysis import (
+    AnalysisResponse,
+    AnalysisMetadata,
+    LandCoverClass,
+    AnalysisFlag,
+)
 from backend.utils.logger import logger
 
 
@@ -149,6 +154,24 @@ class AnalysisService:
         pipeline_ms = (time.perf_counter() - pipeline_start) * 1000
         status = "success" if gpt_text else "partial_success"
 
+        # Build frontend-compatible land-cover classes from zero_shot_inspection scores.
+        # Normalise the top-N cosine similarities into percentages for the bar chart.
+        zero_shot = raw_outputs["zero_shot_inspection"]
+        classes = self._build_classes(zero_shot)
+
+        # Derive risk level from confidence band
+        risk_map = {"High": "Low", "Medium": "Medium", "Low": "High"}
+        risk_level = risk_map.get(eo_result.relative_confidence, "Medium")
+
+        # Flags: surface partial-success and low-confidence situations
+        flags = self._build_flags(status, eo_result.relative_confidence, gpt_warning)
+
+        # insight: prefer the GPT narrative; fall back to the static summary
+        insight = gpt_text or eo_result.summary
+
+        # title: short scene descriptor shown in the report card header
+        title = f"{eo_result.dominant_land_cover} Scene Analysis"
+
         response = AnalysisResponse(
             status=status,
             dominant_land_cover=eo_result.dominant_land_cover,
@@ -161,6 +184,12 @@ class AnalysisService:
             summary=eo_result.summary,
             gpt_analysis=gpt_text,
             warning=gpt_warning,
+            # Frontend-compatible fields
+            insight=insight,
+            classes=classes,
+            flags=flags,
+            title=title,
+            risk_level=risk_level,
             metadata=AnalysisMetadata(
                 vision_model=vision_model_id,
                 llm_model=llm_model_id,
@@ -175,6 +204,7 @@ class AnalysisService:
             f"Status: {status}."
         )
         return response
+
 
     # ------------------------------------------------------------------
     # Stage helpers
@@ -264,6 +294,91 @@ class AnalysisService:
         except Exception as e:
             logger.warning(f"GPT analysis failed (non-fatal): {type(e).__name__}: {e}")
             return None, "LLM analysis unavailable.", llm_model_id
+
+
+    # ------------------------------------------------------------------
+    # Frontend-compatibility helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_classes(zero_shot: list) -> list:
+        """
+        Convert raw zero_shot_inspection cosine scores into a list of
+        LandCoverClass objects with percentage values for the frontend bar chart.
+
+        The top 5 entries are taken, then cosine values are normalised to sum
+        to 100 so they read as percentages.
+        """
+        # Colour palette mapped by common EO label keywords
+        COLOUR_MAP = {
+            "forest": "#10b981",
+            "dense": "#10b981",
+            "agricult": "#84cc16",
+            "farm": "#84cc16",
+            "crop": "#84cc16",
+            "water": "#0ea5e9",
+            "ocean": "#0ea5e9",
+            "lake": "#0ea5e9",
+            "river": "#38bdf8",
+            "resid": "#a855f7",
+            "urban": "#a855f7",
+            "city": "#a855f7",
+            "build": "#a855f7",
+            "industri": "#f43f5e",
+            "factory": "#f43f5e",
+            "desert": "#eab308",
+            "barren": "#eab308",
+            "sand": "#eab308",
+        }
+        DEFAULT_COLOURS = [
+            "#6366f1", "#ec4899", "#f97316", "#14b8a6", "#64748b"
+        ]
+
+        def _colour_for(tag: str) -> str:
+            tag_lower = tag.lower()
+            for kw, colour in COLOUR_MAP.items():
+                if kw in tag_lower:
+                    return colour
+            return DEFAULT_COLOURS[0]
+
+        # Take the top 5 by cosine_similarity
+        top = sorted(zero_shot, key=lambda x: x["cosine_similarity"], reverse=True)[:5]
+        if not top:
+            return []
+
+        total = sum(max(0.0, e["cosine_similarity"]) for e in top)
+        if total == 0:
+            total = 1.0  # avoid division by zero
+
+        classes = []
+        for i, entry in enumerate(top):
+            label = entry["tag"].replace("a satellite photo of ", "").strip().title()
+            raw = max(0.0, entry["cosine_similarity"])
+            pct = round((raw / total) * 100, 1)
+            colour = _colour_for(entry["tag"])
+            if i >= 1 and _colour_for(entry["tag"]) == _colour_for(top[0]["tag"]):
+                colour = DEFAULT_COLOURS[i % len(DEFAULT_COLOURS)]
+            classes.append(LandCoverClass(label=label, pct=pct, color=colour))
+
+        return classes
+
+    @staticmethod
+    def _build_flags(status: str, confidence: str, warning: str | None) -> list:
+        """Build informational flags for the frontend report card."""
+        flags = []
+        if status == "partial_success":
+            flags.append(AnalysisFlag(
+                icon="⚠️",
+                label="AI explanation unavailable — vision metrics shown only.",
+                level="warning",
+            ))
+        if confidence == "Low":
+            flags.append(AnalysisFlag(
+                icon="ℹ️",
+                label="Low confidence classification — image may be ambiguous or low-resolution.",
+                level="info",
+            ))
+        return flags
 
 
 # ---------------------------------------------------------------------------

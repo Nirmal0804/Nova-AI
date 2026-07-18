@@ -36,7 +36,7 @@ _MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
         "EO scene interpretation, and a GPT-generated analyst report."
     ),
 )
-async def analyze_image(file: UploadFile = File(...)) -> AnalysisResponse:
+async def analyze_image(image: UploadFile = File(...)) -> AnalysisResponse:
     """
     POST /api/analyze — production EO analysis endpoint.
 
@@ -47,14 +47,14 @@ async def analyze_image(file: UploadFile = File(...)) -> AnalysisResponse:
     request_start = time.perf_counter()
     logger.info(
         f"[/api/analyze] Request received. "
-        f"Filename: '{file.filename}', Content-Type: {file.content_type}."
+        f"Filename: '{image.filename}', Content-Type: {image.content_type}."
     )
 
     # ------------------------------------------------------------------
     # 1. Read upload stream
     # ------------------------------------------------------------------
     try:
-        image_bytes = await file.read()
+        image_bytes = await image.read()
     except Exception as e:
         logger.error(f"[/api/analyze] Failed to read upload stream: {e}")
         raise HTTPException(
@@ -84,7 +84,7 @@ async def analyze_image(file: UploadFile = File(...)) -> AnalysisResponse:
     try:
         result = await analysis_service.analyze_image(
             image_bytes=image_bytes,
-            filename=file.filename or "upload.jpg",
+            filename=image.filename or "upload.jpg",
         )
 
     except ValueError as e:
