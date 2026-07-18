@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export const Route = createFileRoute("/demo")({
   component: NovaDemo,
@@ -306,7 +308,15 @@ function NovaDemo() {
                        </div>
                     )}
                     <div className={`cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`}>
-                      <div className="cb-msg-text">{m.text}</div>
+                      <div className="cb-msg-text cb-markdown">
+                        {m.role === "assistant" && !m.isReport ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.text}
+                          </ReactMarkdown>
+                        ) : (
+                          m.text
+                        )}
+                      </div>
                       
                       {/* Rich Report Render */}
                       {m.isReport && result && (
@@ -531,6 +541,18 @@ const css = `
 .cb-msg-bubble.user { background: rgba(255,255,255,0.06); color: var(--star); border-bottom-right-radius: 4px; }
 .cb-msg-bubble.assistant { background: transparent; color: var(--star); padding: 4px 0; max-width: 100%; }
 .cb-msg-text { white-space: pre-wrap; }
+.cb-markdown p { margin-bottom: 12px; }
+.cb-markdown p:last-child { margin-bottom: 0; }
+.cb-markdown h1, .cb-markdown h2, .cb-markdown h3 { margin: 16px 0 8px; font-weight: 600; color: var(--star); }
+.cb-markdown ul, .cb-markdown ol { padding-left: 20px; margin-bottom: 12px; }
+.cb-markdown li { margin-bottom: 4px; }
+.cb-markdown strong { font-weight: 600; color: var(--aurora); }
+.cb-markdown code { font-family: 'Space Mono', monospace; font-size: 0.85em; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; }
+.cb-markdown pre { background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 12px; }
+.cb-markdown pre code { background: transparent; padding: 0; }
+.cb-markdown table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.cb-markdown th, .cb-markdown td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+.cb-markdown th { background: rgba(255,255,255,0.05); }
 
 /* PIPELINE (LOADING) */
 .cb-pipeline { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
