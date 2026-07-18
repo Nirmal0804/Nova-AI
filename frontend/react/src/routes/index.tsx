@@ -189,10 +189,10 @@ function NovaLanding() {
           </div>
         </div>
 
-        <div className="scroll-hint">
+        <a href="#solution" className="scroll-hint">
           <span>SCROLL</span>
           <div className="scroll-bar"><div /></div>
-        </div>
+        </a>
       </section>
 
       <div className="marquee">
@@ -216,14 +216,11 @@ function NovaLanding() {
           </div>
           <div className="flow">
             {flow.map((s, i) => (
-              <div key={s.n} className="flow-item nova-reveal" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div className="flow-step nova-spot">
-                  <div className="step-num">{s.n}</div>
-                  <div className="step-icon">{s.icon}</div>
-                  <div className="step-title">{s.title}</div>
-                  <div className="step-desc">{s.desc}</div>
-                </div>
-                {i < flow.length - 1 && <div className="flow-arrow">→</div>}
+              <div key={s.n} className="flow-step nova-spot nova-reveal" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div className="step-num">{s.n}</div>
+                <div className="step-icon">{s.icon}</div>
+                <div className="step-title">{s.title}</div>
+                <div className="step-desc">{s.desc}</div>
               </div>
             ))}
           </div>
@@ -584,7 +581,9 @@ html { scroll-behavior: smooth; }
   position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 0.3em; color: var(--dim);
+  text-decoration: none; cursor: pointer; transition: color 0.3s;
 }
+.scroll-hint:hover { color: var(--aurora); }
 .scroll-bar { width: 1px; height: 40px; background: rgba(255,255,255,0.1); overflow: hidden; }
 .scroll-bar > div { width: 100%; height: 40%; background: var(--aurora); animation: nova-slide 2s ease-in-out infinite; }
 @keyframes nova-slide { 0%{transform:translateY(-100%)} 100%{transform:translateY(250%)} }
@@ -630,15 +629,14 @@ html { scroll-behavior: smooth; }
 
 /* solution */
 #solution { padding: 110px 40px; background: var(--deep); position: relative; }
-.flow { display: flex; align-items: stretch; justify-content: center; flex-wrap: wrap; }
-.flow-item { display: flex; align-items: center; }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
 .flow-step {
   background: linear-gradient(180deg, var(--card), var(--surface));
   border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px;
-  width: 200px; text-align: center; transition: border-color 0.2s, transform 0.2s;
+  text-align: center; transition: border-color 0.2s, transform 0.2s;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
 }
 .flow-step:hover { border-color: var(--aurora); transform: translateY(-4px); box-shadow: 0 20px 60px -30px var(--aurora-glow); }
-.flow-arrow { color: var(--dim); font-size: 1.4rem; padding: 0 6px; }
 .step-num { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--aurora); letter-spacing: 0.15em; margin-bottom: 12px; }
 .step-icon { font-size: 2.2rem; margin-bottom: 10px; }
 .step-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
@@ -719,9 +717,7 @@ footer span { color: var(--aurora); }
     padding-left: 20px; padding-right: 20px;
   }
   .tech-grid { grid-template-columns: 1fr; }
-  .flow { flex-direction: column; align-items: center; gap: 8px; }
-  .flow-item { flex-direction: column; }
-  .flow-arrow { transform: rotate(90deg); padding: 8px 0; }
+  .flow { grid-template-columns: 1fr; gap: 16px; }
   .scroll-hint { display: none; }
 }
 `
