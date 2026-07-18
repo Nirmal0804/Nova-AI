@@ -50,10 +50,10 @@ interface CompareResponse {
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const PIPELINE_STAGES = [
-  { icon: "📤", title: "Ingestion", desc: "Reading image and metadata" },
-  { icon: "⚙️", title: "Preprocessing", desc: "Standardizing image format" },
-  { icon: "🧠", title: "Vision Analysis", desc: "Identifying land patterns" },
-  { icon: "💬", title: "AI Insight", desc: "Generating expert summaries" },
+  { icon: "📤", title: "Uploading Image...", desc: "Transferring file to secure server" },
+  { icon: "🛰️", title: "Running RemoteCLIP...", desc: "Extracting vision features" },
+  { icon: "🌍", title: "Interpreting EO Context...", desc: "Mapping land cover & vegetation" },
+  { icon: "💬", title: "Generating GPT Response...", desc: "Synthesizing AI insights" },
 ];
 
 const QUESTION_SUGGESTIONS = [
@@ -143,14 +143,13 @@ function NovaDemo() {
     }, 100);
     timers.current.push(progressInterval as any);
 
-    // Advance through the first three stages on a fixed timer for visual
-    // pacing; the real network request runs in parallel underneath.
+    // Advance through the first three stages on a faster fixed timer
     [1, 2, 3].forEach((i) => {
-      const t = setTimeout(() => setStageIndex(i), i * 700);
+      const t = setTimeout(() => setStageIndex(i), i * 250);
       timers.current.push(t);
     });
     const minDuration = new Promise((resolve) => {
-      const t = setTimeout(resolve, PIPELINE_STAGES.length * 550);
+      const t = setTimeout(resolve, PIPELINE_STAGES.length * 250);
       timers.current.push(t);
     });
 
@@ -269,7 +268,7 @@ function NovaDemo() {
           {/* Left: upload + preview */}
           <div className="nd-panel">
             <div
-              className={`nd-drop ${dragOver ? "drag" : ""} ${previewUrl ? "has-image" : ""}`}
+              className={`nd-drop ${dragOver ? "drag" : ""} ${previewUrl ? "has-image" : ""} ${status === "running" ? "running" : ""}`}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragOver(true);
@@ -833,10 +832,11 @@ const css = `
 
 .nd-drop {
   border: 1.5px dashed var(--border); border-radius: 12px; min-height: 260px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color 0.2s, background 0.2s; overflow: hidden; background: rgba(255,255,255,0.02);
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, opacity 0.2s; overflow: hidden; background: rgba(255,255,255,0.02);
 }
 .nd-drop.drag { border-color: var(--aurora); background: rgba(0,229,200,0.05); }
 .nd-drop.has-image { padding: 0; }
+.nd-drop.running { pointer-events: none; opacity: 0.6; }
 .nd-drop img { width: 100%; height: 260px; object-fit: cover; display: block; }
 .nd-drop-empty { text-align: center; color: var(--muted); padding: 20px; }
 .nd-drop-icon { font-size: 2.2rem; margin-bottom: 10px; }
