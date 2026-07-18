@@ -248,15 +248,9 @@ function NovaDemo() {
         {/* SIDEBAR */}
         <aside className="cb-sidebar">
           <div className="cb-sidebar-top">
-            <Link to="/" className="cb-logo-icon" title="Home">
-              <div className="cb-dot" />
-            </Link>
             <button className="cb-sidebar-btn active" title="New Chat">✨</button>
             <button className="cb-sidebar-btn" title="History">📜</button>
             <button className="cb-sidebar-btn" title="Saved Reports">📁</button>
-          </div>
-          <div className="cb-sidebar-bottom">
-            <button className="cb-sidebar-btn" title="Settings">⚙️</button>
           </div>
         </aside>
 
@@ -264,11 +258,10 @@ function NovaDemo() {
         <main className="cb-main">
           {/* HEADER */}
           <header className="cb-header">
-            <div className="cb-header-title">NOVA AI Analysis</div>
-            <div className="cb-user-profile">
-              <img src="https://ui-avatars.com/api/?name=NOVA+User&background=00e5c8&color=03030a" alt="User" />
-              <span>NOVA User</span>
-            </div>
+            <Link to="/" className="cb-logo-text">
+              <div className="cb-dot" />
+              NOVA AI
+            </Link>
           </header>
 
           <div className="cb-chat-container">
@@ -510,9 +503,7 @@ const css = `
 /* MAIN AREA */
 .cb-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
 .cb-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; }
-.cb-header-title { font-family: 'Space Mono', monospace; font-size: 0.85rem; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
-.cb-user-profile { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 500; }
-.cb-user-profile img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); }
+.cb-logo-text { font-family: 'Space Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--aurora); letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; text-decoration: none; }
 
 .cb-chat-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 0 24px; }
 
