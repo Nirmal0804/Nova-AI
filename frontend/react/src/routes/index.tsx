@@ -114,7 +114,7 @@ function NovaLanding() {
         <ul className="nova-links">
           <li><a href="#problem">Problem</a></li>
           <li><a href="#solution">Solution</a></li>
-          <li><Link to="/demo">Try Demo</Link></li>
+          <li><Link to="/aichat">Try Demo</Link></li>
         </ul>
         <div className="nova-tag">SIH25170</div>
       </nav>
@@ -141,7 +141,7 @@ function NovaLanding() {
               data — turning raw satellite imagery into clear, actionable intelligence.
             </p>
             <div className="hero-cta">
-              <Link to="/demo" className="btn btn-primary">
+              <Link to="/aichat" className="btn btn-primary">
                 Launch Demo
               </Link>
             </div>
