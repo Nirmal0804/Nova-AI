@@ -160,7 +160,7 @@ export function useAnalysis() {
 
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("image", file, file.name || "image.jpeg");
 
       const controller = new AbortController();
       setAbortController(controller);
@@ -175,7 +175,16 @@ export function useAnalysis() {
         if (!res.ok) {
           if (res.status === 413) throw new Error("Image too large for the backend to process.");
           if (res.status === 415) throw new Error("Unsupported image format.");
-          if (res.status === 400 || res.status === 422) throw new Error("Invalid image or request.");
+
+          let backendErrorStr = "";
+          try {
+            const errData = await res.json();
+            backendErrorStr = errData.detail || "";
+          } catch (e) { }
+
+          if (res.status === 400 || res.status === 422) {
+            throw new Error(backendErrorStr ? backendErrorStr : "Invalid image or request.");
+          }
           if (res.status >= 500) throw new Error("The backend encountered an unexpected error.");
           throw new Error(`Analysis failed due to an unknown error (${res.status}).`);
         }
