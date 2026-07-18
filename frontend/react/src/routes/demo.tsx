@@ -6,9 +6,7 @@ export const Route = createFileRoute("/demo")({
 });
 
 // ---------------------------------------------------------------------------
-// Types — this is the contract the real backend (Step 2) needs to satisfy.
-// Keep this shape stable and swapping runAnalysis()'s mock body for a real
-// `fetch("/api/analyze", ...)` call is the only change needed later.
+// Types
 // ---------------------------------------------------------------------------
 
 interface LandCoverClass {
@@ -38,15 +36,6 @@ interface AnalysisResult {
   scene_type?: string;
 }
 
-interface CompareResponse {
-  result_a: AnalysisResult;
-  result_b: AnalysisResult;
-  comparison_chart?: string;
-  deltas: { label: string; pct_a: number; pct_b: number; delta: number }[];
-}
-
-// Backend base URL. Set VITE_API_BASE_URL in .env.local if the FastAPI
-// service isn't running on the default port (see backend/README.md).
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const PIPELINE_STAGES = [
@@ -59,31 +48,25 @@ const PIPELINE_STAGES = [
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
+  isReport?: boolean;
 }
 
 function NovaDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<"idle" | "running" | "done">("idle");
   const [stageIndex, setStageIndex] = useState(-1);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
-  const [initialQuestion, setInitialQuestion] = useState("");
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const [viewMode, setViewMode] = useState<"original" | "mask" | "blend">("original");
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  const [downloadingPng, setDownloadingPng] = useState(false);
-  const [overlayOpacity, setOverlayOpacity] = useState(50);
-  // Time-series comparison
-  const [compareMode, setCompareMode] = useState(false);
-  const [fileB, setFileB] = useState<File | null>(null);
-  const [previewUrlB, setPreviewUrlB] = useState<string | null>(null);
-  const [compareResult, setCompareResult] = useState<CompareResponse | null>(null);
-  const [comparing, setComparing] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, status, stageIndex]);
 
   useEffect(() => {
     return () => timers.current.forEach(clearTimeout);
@@ -100,68 +83,41 @@ function NovaDemo() {
     }
     
     if (f.size > 10 * 1024 * 1024) {
-      setError(`File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Max size is 10MB.`);
+      setError(`File is too large. Max size is 10MB.`);
       return;
     }
 
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
-    setStatus("idle");
-    setResult(null);
-    setMessages([]);
-    setStageIndex(-1);
-    setUploadProgress(0);
   }, []);
 
-  const resetAnalysis = useCallback(() => {
-    setFile(null);
-    setPreviewUrl(null);
-    setInitialQuestion("");
-    setResult(null);
-    setStatus("idle");
-    setError(null);
-    setMessages([]);
-    setStageIndex(-1);
-    setUploadProgress(0);
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-  }, []);
-
-  const runAnalysis = useCallback(async () => {
-    if (!file || !initialQuestion.trim()) return;
+  const runAnalysis = useCallback(async (prompt: string) => {
+    if (!file || !prompt.trim()) return;
+    
+    // Set up chat state
+    setMessages((prev) => [...prev, { role: "user", text: prompt }]);
+    setChatInput("");
     setStatus("running");
     setResult(null);
     setError(null);
     setStageIndex(0);
-    setUploadProgress(0);
     timers.current.forEach(clearTimeout);
     timers.current = [];
 
-    const progressInterval = setInterval(() => {
-      setUploadProgress(p => {
-        if (p >= 100) {
-          clearInterval(progressInterval);
-          return 100;
-        }
-        return Math.min(p + 12, 100);
-      });
-    }, 100);
-    timers.current.push(progressInterval as any);
-
     // Advance through the first three stages on a faster fixed timer
     [1, 2, 3].forEach((i) => {
-      const t = setTimeout(() => setStageIndex(i), i * 250);
+      const t = setTimeout(() => setStageIndex(i), i * 350);
       timers.current.push(t);
     });
     const minDuration = new Promise((resolve) => {
-      const t = setTimeout(resolve, PIPELINE_STAGES.length * 250);
+      const t = setTimeout(resolve, PIPELINE_STAGES.length * 350);
       timers.current.push(t);
     });
 
     try {
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("question", initialQuestion);
+      formData.append("question", prompt);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
@@ -190,52 +146,54 @@ function NovaDemo() {
       const [data] = await Promise.all([fetchAnalysis, minDuration]);
       setResult(data);
       setStatus("done");
-      setMessages([
-        { role: "user", text: initialQuestion },
-        { role: "assistant", text: data.insight }
+      
+      // Inject the rich report as an assistant message
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: data.insight, isReport: true }
       ]);
+      // Clear file selection after analyzing so next prompt just chats unless a new file is added
+      setFile(null);
+      setPreviewUrl(null);
+      
     } catch (err: any) {
       setStatus("idle");
       setStageIndex(-1);
       
       let friendlyMsg = "Something went wrong while analyzing the image.";
+      if (err.name === "AbortError") friendlyMsg = "The request timed out. The server took too long to respond.";
+      else if (err instanceof TypeError) friendlyMsg = "Network failure. Could not connect to the backend server.";
+      else if (err instanceof Error) friendlyMsg = err.message;
       
-      if (err.name === "AbortError") {
-        friendlyMsg = "The request timed out. The server took too long to respond.";
-      } else if (err instanceof TypeError) {
-        friendlyMsg = "Network failure. Could not connect to the backend server.";
-      } else if (err instanceof Error) {
-        friendlyMsg = err.message;
-      }
-      
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", text: `⚠️ Error: ${friendlyMsg}` }
+      ]);
       setError(friendlyMsg);
     }
   }, [file]);
 
-  const sendChat = useCallback(async () => {
-    const q = chatInput.trim();
-    if (!q || !result) return;
+  const sendChat = useCallback(async (prompt: string) => {
+    if (!prompt.trim() || !result) return;
+    
+    setMessages((m) => [...m, { role: "user", text: prompt }]);
     setChatInput("");
-    const userMsg: ChatMessage = { role: "user", text: q };
-    setMessages((m) => [...m, userMsg]);
-
-    // Build history from existing messages (exclude the initial insight)
-    const history = messages.slice(1).map((m) => ({ role: m.role, text: m.text }));
+    
+    // Exclude the initial rich report from standard text history for the stream
+    const history = messages.filter(m => !m.isReport).map((m) => ({ role: m.role, text: m.text }));
 
     try {
       const res = await fetch(`${API_BASE}/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q, result, history: [...history, { role: "user", text: q }] }),
+        body: JSON.stringify({ question: prompt, result, history: [...history, { role: "user", text: prompt }] }),
       });
       if (!res.ok) throw new Error(`Chat request failed (${res.status})`);
 
-      // Stream the response
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No readable stream");
 
-      // Add an empty assistant message that we'll append to
       setMessages((m) => [...m, { role: "assistant", text: "" }]);
 
       let done = false;
@@ -256,7 +214,6 @@ function NovaDemo() {
       }
     } catch {
       setMessages((m) => {
-        // If the last message is an empty assistant placeholder, replace it
         const last = m[m.length - 1];
         if (last && last.role === "assistant" && !last.text) {
           return [...m.slice(0, -1), { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
@@ -264,727 +221,386 @@ function NovaDemo() {
         return [...m, { role: "assistant" as const, text: `Couldn't reach the backend at ${API_BASE} — is it running?` }];
       });
     }
-  }, [chatInput, result, messages]);
+  }, [result, messages]);
+
+  const handleSubmit = () => {
+    const prompt = chatInput.trim();
+    if (!prompt) return;
+    if (file && status !== "running") {
+      runAnalysis(prompt);
+    } else if (result && status !== "running") {
+      sendChat(prompt);
+    }
+  };
+
+  const setSuggestion = (q: string) => {
+    setChatInput(q);
+    const el = document.getElementById("chat-input-textarea");
+    if (el) el.focus();
+  };
 
   return (
-    <div className="nd-root">
+    <div className="cb-root">
       <style>{css}</style>
+      <div id="stars"></div>
 
-      <nav className="nd-nav">
-        <Link to="/" className="nd-logo">
-          <div className="nd-dot" />
-          NOVA AI
-        </Link>
-        <Link to="/" className="nd-back">
-          ← Back to overview
-        </Link>
-      </nav>
+      <div className="cb-layout">
+        {/* SIDEBAR */}
+        <aside className="cb-sidebar">
+          <div className="cb-sidebar-top">
+            <Link to="/" className="cb-logo-icon" title="Home">
+              <div className="cb-dot" />
+            </Link>
+            <button className="cb-sidebar-btn active" title="New Chat">✨</button>
+            <button className="cb-sidebar-btn" title="History">📜</button>
+            <button className="cb-sidebar-btn" title="Saved Reports">📁</button>
+          </div>
+          <div className="cb-sidebar-bottom">
+            <button className="cb-sidebar-btn" title="Settings">⚙️</button>
+          </div>
+        </aside>
 
-      <div className="nd-container">
-        <div className="nd-head">
-          <div className="nd-eyebrow">Interactive Demo</div>
-          <h1>Upload a satellite image</h1>
-          <p>
-            Upload any satellite or aerial image. NOVA AI will analyze the image to identify land-cover
-            patterns, then generate expert insights, risk assessments, and recommended actions.
-          </p>
-        </div>
+        {/* MAIN AREA */}
+        <main className="cb-main">
+          {/* HEADER */}
+          <header className="cb-header">
+            <div className="cb-header-title">NOVA AI Analysis</div>
+            <div className="cb-user-profile">
+              <img src="https://ui-avatars.com/api/?name=NOVA+User&background=00e5c8&color=03030a" alt="User" />
+              <span>NOVA User</span>
+            </div>
+          </header>
 
-        <div className="nd-grid">
-          {/* Left: upload + preview */}
-          <div className="nd-panel">
-            <div
-              className={`nd-drop ${dragOver ? "drag" : ""} ${previewUrl ? "has-image" : ""} ${status === "running" ? "running" : ""}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                handleFile(e.dataTransfer.files?.[0] ?? null);
-              }}
-              onClick={() => document.getElementById("nd-file-input")?.click()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  document.getElementById("nd-file-input")?.click();
-                }
-              }}
-              tabIndex={0}
-              role="button"
-              aria-label="Upload satellite image"
-            >
-              {previewUrl ? (
-                <div className="nd-img-stack">
-                  <button 
-                    className="nd-remove-btn" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      resetAnalysis();
-                    }}
-                    title="Remove image"
-                    aria-label="Remove image"
-                  >
-                    ✕
+          <div className="cb-chat-container">
+            {messages.length === 0 ? (
+              <div className="cb-welcome">
+                <div className="cb-hero-orb orb1"></div>
+                <div className="cb-hero-orb orb2"></div>
+                <h2>Hey! NOVA User</h2>
+                <h1>What can I help you analyze?</h1>
+                
+                <div className="cb-suggestions">
+                  <button onClick={() => setSuggestion("Identify flood risks and map water boundaries.")}>
+                    <span className="sg-icon">🌊</span>
+                    <div className="sg-text">
+                      <h4>Flood Risk</h4>
+                      <p>Analyze water boundaries</p>
+                    </div>
                   </button>
-                  {viewMode === "original" && (
-                    <img src={previewUrl} alt="Uploaded satellite scene" />
-                  )}
-                  {viewMode === "mask" && result?.mask_image && (
-                    <img src={`data:image/png;base64,${result.mask_image}`} alt="Segmentation mask" />
-                  )}
-                  {viewMode === "mask" && !result?.mask_image && (
-                    <img src={previewUrl} alt="Uploaded satellite scene" />
-                  )}
-                  {viewMode === "blend" && (
-                    <div className="nd-blend-container">
-                      <img src={previewUrl} alt="Original" className="nd-blend-base" />
-                      {result?.mask_image && (
-                        <img src={`data:image/png;base64,${result.mask_image}`} alt="Mask overlay" className="nd-blend-overlay" style={{ opacity: overlayOpacity / 100 }} />
+                  <button onClick={() => setSuggestion("Map the land cover and segment urban areas.")}>
+                    <span className="sg-icon">🏙️</span>
+                    <div className="sg-text">
+                      <h4>Land Cover</h4>
+                      <p>Segment vegetation & urban</p>
+                    </div>
+                  </button>
+                  <button onClick={() => setSuggestion("Assess crop health using NDVI analysis.")}>
+                    <span className="sg-icon">🌾</span>
+                    <div className="sg-text">
+                      <h4>Crop Health</h4>
+                      <p>Generate NDVI insights</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="cb-chat-history">
+                {messages.map((m, i) => (
+                  <div key={i} className={`cb-msg-wrapper ${m.role}`}>
+                    {m.role === "assistant" && (
+                       <div className="cb-msg-avatar">
+                         <div className="cb-dot small" />
+                       </div>
+                    )}
+                    <div className={`cb-msg-bubble ${m.role} ${m.isReport ? "is-report" : ""}`}>
+                      <div className="cb-msg-text">{m.text}</div>
+                      
+                      {/* Rich Report Render */}
+                      {m.isReport && result && (
+                        <div className="cb-report-card">
+                          <hr className="cb-divider" />
+                          {result.title && (
+                            <div className="cb-report-header">
+                              <h3>{result.title}</h3>
+                              {result.risk_level && (
+                                <span className={`cb-risk-badge ${result.risk_level.toLowerCase()}`}>
+                                  {result.risk_level} Risk
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Land Cover Classes */}
+                          {result.classes && result.classes.length > 0 && (
+                            <div className="cb-report-section">
+                              <h4 className="cb-section-title">Land Cover Breakdown</h4>
+                              <div className="cb-classes">
+                                {result.classes.map((c) => (
+                                  <div key={c.label} className="cb-class-row">
+                                    <div className="cb-class-label">
+                                      <span className="cb-swatch" style={{ background: c.color }} />
+                                      {c.label}
+                                    </div>
+                                    <div className="cb-class-bar-track">
+                                      <div className="cb-class-bar" style={{ width: `${c.pct}%`, background: c.color }} />
+                                    </div>
+                                    <div className="cb-class-pct">{c.pct}%</div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* NDVI */}
+                          {result.ndvi_score != null && (
+                            <div className="cb-report-section">
+                              <h4 className="cb-section-title">Vegetation Health (NDVI)</h4>
+                              <div className="cb-ndvi-section">
+                                <div className="cb-ndvi-score">
+                                  <div className="cb-ndvi-val" style={{ color: result.ndvi_score > 0.6 ? '#1a9850' : result.ndvi_score > 0.45 ? '#d9ef8b' : result.ndvi_score > 0.3 ? '#fee08b' : '#d73027' }}>
+                                    {result.ndvi_score.toFixed(3)}
+                                  </div>
+                                  <div className="cb-ndvi-label">
+                                    {result.ndvi_score > 0.6 ? 'Dense Vegetation' : result.ndvi_score > 0.45 ? 'Moderate' : result.ndvi_score > 0.3 ? 'Sparse' : 'Low / Barren'}
+                                  </div>
+                                </div>
+                                {result.ndvi_heatmap && (
+                                  <img src={`data:image/png;base64,${result.ndvi_heatmap}`} alt="NDVI heatmap" className="cb-chart-img" />
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Matplotlib Charts */}
+                          {(result.pie_chart || result.bar_chart) && (
+                            <div className="cb-report-section">
+                              <h4 className="cb-section-title">Statistical Charts</h4>
+                              <div className="cb-charts-row">
+                                {result.pie_chart && <img src={`data:image/png;base64,${result.pie_chart}`} alt="Pie chart" className="cb-chart-img half" />}
+                                {result.bar_chart && <img src={`data:image/png;base64,${result.bar_chart}`} alt="Bar chart" className="cb-chart-img half" />}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
+                ))}
+
+                {/* Loading State */}
+                {status === "running" && (
+                  <div className="cb-msg-wrapper assistant">
+                    <div className="cb-msg-avatar"><div className="cb-dot small pulse" /></div>
+                    <div className="cb-msg-bubble assistant loading">
+                      <div className="cb-pipeline">
+                         {PIPELINE_STAGES.map((s, i) => {
+                           const stateCls = i < stageIndex ? "done" : i === stageIndex ? "active" : "";
+                           return (
+                             <div key={s.title} className={`cb-stage ${stateCls}`}>
+                               <span className="cb-stage-icon">{stateCls === "done" ? "✓" : s.icon}</span>
+                               <span>{s.title}</span>
+                             </div>
+                           )
+                         })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+          </div>
+
+          {/* INPUT AREA */}
+          <div className="cb-input-area">
+            {previewUrl && (
+              <div className="cb-attachment-preview">
+                <img src={previewUrl} alt="Attachment" />
+                <div className="cb-attachment-info">
+                  <span className="cb-attachment-name">{file?.name}</span>
+                  <span className="cb-attachment-size">{((file?.size || 0) / 1024 / 1024).toFixed(2)} MB</span>
                 </div>
-              ) : (
-                <div className="nd-drop-empty">
-                  <div className="nd-drop-icon">🛰️</div>
-                  <div className="nd-drop-title">Drop a satellite image here</div>
-                  <div className="nd-drop-sub">or click to browse · PNG, JPG, TIFF</div>
-                </div>
-              )}
+                <button className="cb-attachment-remove" onClick={() => { setFile(null); setPreviewUrl(null); }}>✕</button>
+              </div>
+            )}
+            {error && <div className="cb-input-error">⚠️ {error}</div>}
+            
+            <div className="cb-input-box">
+              <button 
+                className="cb-attach-btn" 
+                title="Attach satellite image"
+                onClick={() => document.getElementById("cb-file-input")?.click()}
+              >
+                📎 <span className="cb-attach-text">Attach image</span>
+              </button>
               <input
-                id="nd-file-input"
+                id="cb-file-input"
                 type="file"
                 accept=".png,.jpg,.jpeg,.tiff,image/png,image/jpeg,image/tiff"
                 hidden
                 onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
                 onClick={(e) => (e.currentTarget.value = "")}
               />
-            </div>
-
-            {/* Overlay view toggle */}
-            {result?.mask_image && (
-              <div className="nd-view-toggle">
-                {(["original", "mask", "blend"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    className={`nd-view-btn ${viewMode === mode ? "active" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); setViewMode(mode); }}
-                  >
-                    {mode === "original" ? "🛰️ Original" : mode === "mask" ? "🎨 Mask" : "🔀 Blend"}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Opacity slider for blend mode */}
-            {result?.mask_image && viewMode === "blend" && (
-              <div className="nd-opacity-slider">
-                <label>Opacity: {overlayOpacity}%</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={overlayOpacity}
-                  onChange={(e) => setOverlayOpacity(Number(e.target.value))}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            )}
-
-            <div className="nd-initial-question">
-              <label htmlFor="initial-question-input">What do you want to know?</label>
               <textarea 
-                id="initial-question-input"
-                placeholder="e.g. Find all buildings in this area" 
-                value={initialQuestion}
-                onChange={(e) => {
-                  setInitialQuestion(e.target.value);
+                id="chat-input-textarea"
+                placeholder="Ask me anything..."
+                value={chatInput}
+                onChange={e => {
+                  setChatInput(e.target.value);
                   e.target.style.height = "auto";
-                  e.target.style.height = `${e.target.scrollHeight}px`;
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
                 }}
-                maxLength={500}
-                disabled={status === "running"}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    if (file && initialQuestion.trim() && status !== "running") {
-                      runAnalysis();
-                    }
+                    handleSubmit();
                   }
                 }}
+                rows={1}
+                disabled={status === "running"}
               />
-              <div className="nd-question-char-count">
-                {initialQuestion.length} / 500
-              </div>
-            </div>
-
-            <div className="nd-btn-group">
-              <button className="nd-btn nd-btn-primary" disabled={!file || !initialQuestion.trim() || status === "running"} onClick={runAnalysis}>
-                {status === "running" ? "Analyzing…" : "Run Analysis"}
-              </button>
-              {(file || initialQuestion || result || error) && status !== "running" && (
-                <button className="nd-btn nd-btn-secondary" onClick={resetAnalysis}>
-                  Reset Analysis
-                </button>
-              )}
-            </div>
-
-            {file && (
-              <div className="nd-filename">
-                📎 {file.name} <span>({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-              </div>
-            )}
-
-            {status === "running" && uploadProgress < 100 && (
-              <div className="nd-upload-progress">
-                <div className="nd-upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
-                <span className="nd-upload-progress-text">{uploadProgress}% Uploaded</span>
-              </div>
-            )}
-
-            {error && <div className="nd-error">⚠️ {error}</div>}
-
-            {status !== "idle" && (
-              <div className="nd-pipeline">
-                {PIPELINE_STAGES.map((s, i) => {
-                  const stateCls = i < stageIndex ? "done" : i === stageIndex && status === "running" ? "active" : status === "done" ? "done" : "";
-                  return (
-                    <div key={s.title} className={`nd-stage ${stateCls}`}>
-                      <div className="nd-stage-icon">{stateCls === "done" ? "✓" : s.icon}</div>
-                      <div>
-                        <div className="nd-stage-title">{s.title}</div>
-                        <div className="nd-stage-desc">{s.desc}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Right: results + chat */}
-          <div className="nd-panel">
-            {!result && status !== "running" && (
-              <div className="nd-placeholder">Results will appear here after you run an analysis.</div>
-            )}
-
-            {status === "running" && !result && (
-              <div className="nd-placeholder">
-                <div className="nd-spinner" />
-                Running pipeline…
-              </div>
-            )}
-
-            {result && (
-              <>
-                {result.title && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-                    <h2 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 600 }}>{result.title}</h2>
-                    {result.risk_level && (
-                      <span
-                        style={{
-                          fontSize: "0.72rem",
-                          fontFamily: "'Space Mono', monospace",
-                          padding: "3px 10px",
-                          borderRadius: "6px",
-                          fontWeight: 600,
-                          background:
-                            result.risk_level === "High"
-                              ? "rgba(255,78,106,0.15)"
-                              : result.risk_level === "Medium"
-                                ? "rgba(255,184,78,0.15)"
-                                : "rgba(0,229,160,0.15)",
-                          color:
-                            result.risk_level === "High"
-                              ? "#ff4e6a"
-                              : result.risk_level === "Medium"
-                                ? "#ffb84e"
-                                : "#00e5a0",
-                          border: `1px solid ${
-                            result.risk_level === "High"
-                              ? "rgba(255,78,106,0.3)"
-                              : result.risk_level === "Medium"
-                                ? "rgba(255,184,78,0.3)"
-                                : "rgba(0,229,160,0.3)"
-                          }`,
-                        }}
-                      >
-                        {result.risk_level} Risk
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="nd-section-title">Land Cover Breakdown</div>
-                <div className="nd-classes">
-                  {result.classes.map((c) => (
-                    <div key={c.label} className="nd-class-row">
-                      <div className="nd-class-label">
-                        <span className="nd-swatch" style={{ background: c.color }} />
-                        {c.label}
-                      </div>
-                      <div className="nd-class-bar-track">
-                        <div className="nd-class-bar" style={{ width: `${c.pct}%`, background: c.color }} />
-                      </div>
-                      <div className="nd-class-pct">{c.pct}%</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="nd-flags">
-                  {result.flags.map((f, i) => (
-                    <div key={i} className={`nd-flag ${f.level}`}>
-                      <span>{f.icon}</span> {f.label}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Scene Type Badge */}
-                {result.scene_type && (
-                  <div className="nd-scene-badge">
-                    🗺️ Scene: <strong>{result.scene_type}</strong>
-                  </div>
-                )}
-
-                {/* Matplotlib Charts */}
-                {(result.pie_chart || result.bar_chart) && (
-                  <>
-                    <div className="nd-section-title">Analysis Charts (Matplotlib)</div>
-                    <div className="nd-charts-row">
-                      {result.pie_chart && (
-                        <div className="nd-chart-card">
-                          <img src={`data:image/png;base64,${result.pie_chart}`} alt="Pie chart" />
-                        </div>
-                      )}
-                      {result.bar_chart && (
-                        <div className="nd-chart-card">
-                          <img src={`data:image/png;base64,${result.bar_chart}`} alt="Bar chart" />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* NDVI Vegetation Health */}
-                {result.ndvi_score != null && (
-                  <>
-                    <div className="nd-section-title">Vegetation Health (NDVI)</div>
-                    <div className="nd-ndvi-section">
-                      <div className="nd-ndvi-score-card">
-                        <div className="nd-ndvi-value" style={{
-                          color: result.ndvi_score > 0.6 ? '#1a9850' : result.ndvi_score > 0.45 ? '#d9ef8b' : result.ndvi_score > 0.3 ? '#fee08b' : '#d73027'
-                        }}>
-                          {result.ndvi_score.toFixed(3)}
-                        </div>
-                        <div className="nd-ndvi-label">
-                          {result.ndvi_score > 0.6 ? 'Dense Vegetation' : result.ndvi_score > 0.45 ? 'Moderate' : result.ndvi_score > 0.3 ? 'Sparse' : 'Low / Barren'}
-                        </div>
-                        <div className="nd-ndvi-range">
-                          Range: {result.ndvi_min?.toFixed(3)} – {result.ndvi_max?.toFixed(3)}
-                        </div>
-                        <div className="nd-ndvi-legend">
-                          <div className="nd-legend-bar" />
-                          <div className="nd-legend-labels">
-                            <span>Barren</span><span>Sparse</span><span>Healthy</span><span>Dense</span>
-                          </div>
-                        </div>
-                      </div>
-                      {result.ndvi_heatmap && (
-                        <div className="nd-ndvi-heatmap">
-                          <img src={`data:image/png;base64,${result.ndvi_heatmap}`} alt="NDVI heatmap" />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* Use Cases */}
-                {result.use_cases && result.use_cases.length > 0 && (
-                  <>
-                    <div className="nd-section-title">Relevant Use Cases</div>
-                    <div className="nd-usecases">
-                      {result.use_cases.map((uc, i) => (
-                        <div key={i} className="nd-usecase-card">
-                          <div className="nd-uc-name">{uc.name}</div>
-                          <div className="nd-uc-rationale">{uc.rationale}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Recommended Actions */}
-                {result.recommended_actions && result.recommended_actions.length > 0 && (
-                  <>
-                    <div className="nd-section-title">Recommended Actions</div>
-                    <div className="nd-actions">
-                      {result.recommended_actions.map((ra, i) => (
-                        <div key={i} className="nd-action-card">
-                          <div className="nd-action-audience">{ra.audience}</div>
-                          <div className="nd-action-text">{ra.action}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Download Buttons Row */}
-                <div className="nd-export-row">
-                  <button
-                    className="nd-btn nd-btn-report"
-                    disabled={downloadingPdf}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      setDownloadingPdf(true);
-                      try {
-                        const res = await fetch(`${API_BASE}/api/report`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ result }),
-                        });
-                        if (!res.ok) throw new Error(`Report failed`);
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url; a.download = "nova_ai_report.pdf"; a.click();
-                        URL.revokeObjectURL(url);
-                      } catch { alert("Failed to generate PDF report."); }
-                      finally { setDownloadingPdf(false); }
-                    }}
-                  >
-                    {downloadingPdf ? "Generating…" : "📄 PDF Report"}
-                  </button>
-                  <button
-                    className="nd-btn nd-btn-png"
-                    disabled={downloadingPng}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      setDownloadingPng(true);
-                      try {
-                        const res = await fetch(`${API_BASE}/api/export/png`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ result }),
-                        });
-                        if (!res.ok) throw new Error(`PNG failed`);
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url; a.download = "nova_ai_summary.png"; a.click();
-                        URL.revokeObjectURL(url);
-                      } catch { alert("Failed to generate PNG."); }
-                      finally { setDownloadingPng(false); }
-                    }}
-                  >
-                    {downloadingPng ? "Generating…" : "📸 PNG Export"}
-                  </button>
-                </div>
-
-                <div className="nd-section-title">Ask about this image</div>
-                <div className="nd-chat">
-                  {messages.map((m, i) => (
-                    <div key={i} className={`nd-msg ${m.role}`}>
-                      {m.text}
-                    </div>
-                  ))}
-                </div>
-                <div className="nd-chat-input">
-                  <input
-                    placeholder="e.g. Is there flood risk here?"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && sendChat()}
-                  />
-                  <button onClick={sendChat} disabled={!chatInput.trim()}>
-                    Send
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* ──────── TIME-SERIES COMPARISON ──────── */}
-        <div className="nd-compare-section">
-          <div className="nd-section-title" style={{ cursor: "pointer" }} onClick={() => setCompareMode(!compareMode)}>
-            {compareMode ? "▼" : "▶"} Time-Series Comparison
-          </div>
-          {compareMode && (
-            <div className="nd-compare-panel">
-              <div className="nd-compare-uploads">
-                <div className="nd-compare-slot">
-                  <div className="nd-compare-label">Image A (Before)</div>
-                  {previewUrl ? (
-                    <img src={previewUrl} alt="Image A" className="nd-compare-thumb" />
-                  ) : (
-                    <div className="nd-compare-empty">Upload an image above first</div>
-                  )}
-                </div>
-                <div className="nd-compare-slot">
-                  <div className="nd-compare-label">Image B (After)</div>
-                  {previewUrlB ? (
-                    <img src={previewUrlB} alt="Image B" className="nd-compare-thumb" />
-                  ) : (
-                    <div
-                      className="nd-compare-empty nd-compare-dropzone"
-                      onClick={() => document.getElementById("nd-file-b")?.click()}
-                    >
-                      Click to upload Image B
-                    </div>
-                  )}
-                  <input
-                    id="nd-file-b"
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      if (f) {
-                        setFileB(f);
-                        setPreviewUrlB(URL.createObjectURL(f));
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-              <button
-                className="nd-btn nd-btn-primary"
-                disabled={!file || !fileB || comparing}
-                onClick={async () => {
-                  if (!file || !fileB) return;
-                  setComparing(true);
-                  setCompareResult(null);
-                  try {
-                    const fd = new FormData();
-                    fd.append("image_a", file);
-                    fd.append("image_b", fileB);
-                    const res = await fetch(`${API_BASE}/api/analyze/compare`, {
-                      method: "POST",
-                      body: fd,
-                    });
-                    if (!res.ok) throw new Error(`Compare failed (${res.status})`);
-                    const data = await res.json();
-                    setCompareResult(data);
-                  } catch (err: unknown) {
-                    alert(`Comparison failed: ${err instanceof Error ? err.message : err}`);
-                  } finally {
-                    setComparing(false);
-                  }
-                }}
+              <button 
+                className="cb-submit-btn" 
+                disabled={(!chatInput.trim() && !file) || status === "running"}
+                onClick={handleSubmit}
               >
-                {comparing ? "Comparing…" : "Compare Images"}
+                ↑
               </button>
-
-              {compareResult && (
-                <div className="nd-compare-results">
-                  <div className="nd-section-title">Change Detection</div>
-                  <div className="nd-delta-table">
-                    <div className="nd-delta-header">
-                      <span>Class</span><span>Before</span><span>After</span><span>Change</span>
-                    </div>
-                    {compareResult.deltas.map((d, i) => (
-                      <div key={i} className="nd-delta-row">
-                        <span className="nd-delta-label">{d.label}</span>
-                        <span>{d.pct_a}%</span>
-                        <span>{d.pct_b}%</span>
-                        <span className={`nd-delta-val ${d.delta > 0 ? "pos" : d.delta < 0 ? "neg" : ""}`}>
-                          {d.delta > 0 ? "↑" : d.delta < 0 ? "↓" : "–"} {Math.abs(d.delta)}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  {compareResult.comparison_chart && (
-                    <div className="nd-compare-chart">
-                      <img src={`data:image/png;base64,${compareResult.comparison_chart}`} alt="Comparison chart" />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-          )}
-        </div>
+            <div className="cb-footer-text">
+              NOVA AI can make mistakes. Verify critical intelligence.
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
 }
 
 const css = `
-.nd-root {
+.cb-root {
   --void: #03030a; --deep: #080818; --surface: #0d0d24; --card: #11112e;
   --border: rgba(120, 100, 255, 0.18); --nebula: #6c47ff; --aurora: #00e5c8;
   --star: #f0edff; --muted: rgba(240, 237, 255, 0.55); --dim: rgba(240, 237, 255, 0.28);
-  --danger: #ff4e6a; --warning: #ffb84e; --green: #00e5a0;
   background: var(--void); color: var(--star); font-family: 'Space Grotesk', system-ui, sans-serif;
-  min-height: 100vh;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
 }
-.nd-root * { box-sizing: border-box; }
-.nd-nav {
-  position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 32px; background: rgba(3,3,10,0.75); backdrop-filter: blur(18px); border-bottom: 1px solid var(--border);
+.cb-root * { box-sizing: border-box; }
+
+#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 80% 60% at 50% 0%, #1a0a3a 0%, var(--void) 70%); }
+
+.cb-layout { display: flex; height: 100%; z-index: 1; position: relative; }
+
+/* SIDEBAR */
+.cb-sidebar {
+  width: 68px; background: rgba(3,3,10,0.8); backdrop-filter: blur(12px); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 20px 0;
 }
-.nd-logo { display: flex; align-items: center; gap: 10px; font-family: 'Space Mono', monospace; font-weight: 700; color: var(--aurora); text-decoration: none; letter-spacing: 0.08em; }
-.nd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--aurora); box-shadow: 0 0 12px var(--aurora); }
-.nd-back { color: var(--muted); text-decoration: none; font-size: 0.85rem; }
-.nd-back:hover { color: var(--star); }
+.cb-sidebar-top, .cb-sidebar-bottom { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.cb-logo-icon { width: 40px; height: 40px; border-radius: 12px; background: rgba(0,229,200,0.1); border: 1px solid rgba(0,229,200,0.3); display: flex; align-items: center; justify-content: center; text-decoration: none; margin-bottom: 10px; }
+.cb-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--aurora); box-shadow: 0 0 12px var(--aurora); }
+.cb-dot.small { width: 6px; height: 6px; }
+.cb-dot.pulse { animation: pulse 1.5s infinite alternate; }
+@keyframes pulse { from { opacity: 1; transform: scale(1); } to { opacity: 0.4; transform: scale(0.8); } }
 
-.nd-container { max-width: 1180px; margin: 0 auto; padding: 48px 32px 100px; }
-.nd-head { margin-bottom: 36px; }
-.nd-eyebrow { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--nebula); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
-.nd-head h1 { font-size: 2.2rem; margin: 0 0 10px; font-weight: 600; }
-.nd-head p { color: var(--muted); max-width: 640px; margin: 0; line-height: 1.6; }
+.cb-sidebar-btn { width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent; color: var(--muted); font-size: 1.1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.cb-sidebar-btn:hover { background: rgba(255,255,255,0.05); color: var(--star); }
+.cb-sidebar-btn.active { background: rgba(108,71,255,0.15); color: var(--aurora); }
 
-.nd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
-@media (max-width: 880px) { .nd-grid { grid-template-columns: 1fr; } }
+/* MAIN AREA */
+.cb-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+.cb-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; }
+.cb-header-title { font-family: 'Space Mono', monospace; font-size: 0.85rem; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.cb-user-profile { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 500; }
+.cb-user-profile img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); }
 
-.nd-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.cb-chat-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 0 24px; }
 
-.nd-drop {
-  border: 1.5px dashed var(--border); border-radius: 12px; min-height: 260px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: border-color 0.2s, background 0.2s, opacity 0.2s; overflow: hidden; background: rgba(255,255,255,0.02);
+/* WELCOME SCREEN */
+.cb-welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
+.cb-hero-orb { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: -1; }
+.cb-welcome .orb1 { width: 500px; height: 500px; top: -100px; background: rgba(108, 71, 255, 0.12); }
+.cb-welcome .orb2 { width: 300px; height: 300px; bottom: 100px; background: rgba(0, 229, 200, 0.08); }
+.cb-welcome h2 { font-size: 1.8rem; font-weight: 400; color: var(--star); margin: 0; }
+.cb-welcome h1 { font-size: 2.2rem; font-weight: 600; color: var(--star); margin: 5px 0 40px; }
+
+.cb-suggestions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; max-width: 800px; }
+.cb-suggestions button { display: flex; align-items: flex-start; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; width: 240px; text-align: left; cursor: pointer; transition: all 0.2s; }
+.cb-suggestions button:hover { background: rgba(108,71,255,0.1); border-color: rgba(108,71,255,0.4); transform: translateY(-2px); }
+.sg-icon { font-size: 1.4rem; padding: 8px; background: rgba(0,229,200,0.1); border-radius: 10px; }
+.sg-text h4 { margin: 0 0 4px; font-size: 0.9rem; color: var(--star); font-weight: 600; }
+.sg-text p { margin: 0; font-size: 0.75rem; color: var(--muted); }
+
+/* CHAT HISTORY */
+.cb-chat-history { max-width: 800px; width: 100%; margin: 0 auto; padding: 20px 0 40px; display: flex; flex-direction: column; gap: 24px; }
+.cb-msg-wrapper { display: flex; gap: 16px; align-items: flex-start; }
+.cb-msg-wrapper.user { justify-content: flex-end; }
+.cb-msg-avatar { width: 28px; height: 28px; border-radius: 8px; background: rgba(0,229,200,0.1); border: 1px solid rgba(0,229,200,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+.cb-msg-bubble { padding: 12px 18px; border-radius: 16px; font-size: 0.95rem; line-height: 1.6; max-width: 85%; }
+.cb-msg-bubble.user { background: rgba(255,255,255,0.06); color: var(--star); border-bottom-right-radius: 4px; }
+.cb-msg-bubble.assistant { background: transparent; color: var(--star); padding: 4px 0; max-width: 100%; }
+.cb-msg-text { white-space: pre-wrap; }
+
+/* PIPELINE (LOADING) */
+.cb-pipeline { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.cb-stage { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--dim); font-family: 'Space Mono', monospace; transition: all 0.3s; }
+.cb-stage.active { color: var(--aurora); }
+.cb-stage.done { color: var(--muted); }
+.cb-stage-icon { display: inline-block; width: 20px; text-align: center; }
+
+/* RICH REPORT CARD */
+.cb-report-card { margin-top: 20px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.cb-divider { border: none; height: 1px; background: var(--border); margin: 0 0 20px; }
+.cb-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.cb-report-header h3 { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--aurora); }
+.cb-risk-badge { font-size: 0.75rem; font-family: 'Space Mono', monospace; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+.cb-risk-badge.high { background: rgba(255,78,106,0.15); color: #ff4e6a; border: 1px solid rgba(255,78,106,0.3); }
+.cb-risk-badge.medium { background: rgba(255,184,78,0.15); color: #ffb84e; border: 1px solid rgba(255,184,78,0.3); }
+.cb-risk-badge.low { background: rgba(0,229,160,0.15); color: #00e5a0; border: 1px solid rgba(0,229,160,0.3); }
+
+.cb-report-section { margin-bottom: 24px; }
+.cb-report-section:last-child { margin-bottom: 0; }
+.cb-section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; font-family: 'Space Mono', monospace; }
+
+.cb-classes { display: flex; flex-direction: column; gap: 8px; }
+.cb-class-row { display: grid; grid-template-columns: 140px 1fr 50px; align-items: center; gap: 12px; font-size: 0.85rem; }
+.cb-class-label { display: flex; align-items: center; gap: 8px; color: var(--star); }
+.cb-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.cb-class-bar-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05); }
+.cb-class-bar { height: 100%; border-radius: 4px; }
+.cb-class-pct { font-family: 'Space Mono', monospace; color: var(--muted); text-align: right; }
+
+.cb-ndvi-section { display: flex; gap: 16px; align-items: center; }
+.cb-ndvi-score { flex: 1; background: rgba(26,152,80,0.1); border: 1px solid rgba(26,152,80,0.3); padding: 16px; border-radius: 12px; text-align: center; }
+.cb-ndvi-val { font-size: 2rem; font-weight: 700; font-family: 'Space Mono', monospace; line-height: 1; margin-bottom: 4px; }
+.cb-ndvi-label { font-size: 0.85rem; font-weight: 500; color: var(--star); }
+.cb-chart-img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+.cb-charts-row { display: flex; gap: 12px; }
+.cb-charts-row .half { flex: 1; min-width: 0; }
+
+/* INPUT AREA */
+.cb-input-area { max-width: 800px; width: 100%; margin: 0 auto; padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+.cb-input-error { background: rgba(255,78,106,0.1); border: 1px solid rgba(255,78,106,0.3); color: #ffb3c0; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; }
+.cb-attachment-preview { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); padding: 8px; border-radius: 12px; width: max-content; max-width: 100%; }
+.cb-attachment-preview img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+.cb-attachment-info { display: flex; flex-direction: column; }
+.cb-attachment-name { font-size: 0.8rem; font-weight: 500; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-attachment-size { font-size: 0.7rem; color: var(--dim); }
+.cb-attachment-remove { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 1rem; }
+.cb-attachment-remove:hover { color: var(--star); }
+
+.cb-input-box { background: var(--surface); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; display: flex; align-items: flex-end; padding: 8px; gap: 8px; transition: border-color 0.2s; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.cb-input-box:focus-within { border-color: rgba(0,229,200,0.4); }
+.cb-attach-btn { background: rgba(255,255,255,0.05); border: none; color: var(--star); border-radius: 20px; padding: 10px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s; height: 40px; flex-shrink: 0; }
+.cb-attach-btn:hover { background: rgba(255,255,255,0.1); }
+.cb-input-box textarea { flex: 1; background: transparent; border: none; color: var(--star); font-family: inherit; font-size: 0.95rem; line-height: 1.5; resize: none; padding: 8px; max-height: 150px; outline: none; margin-bottom: 2px; }
+.cb-submit-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--aurora); color: #000; font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.2s, transform 0.1s; flex-shrink: 0; margin-bottom: 2px; }
+.cb-submit-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.cb-submit-btn:not(:disabled):hover { transform: scale(1.05); }
+
+.cb-footer-text { text-align: center; font-size: 0.7rem; color: var(--dim); margin-top: 4px; }
+@media (max-width: 600px) {
+  .cb-attach-text { display: none; }
+  .cb-suggestions button { width: 100%; }
 }
-.nd-drop.drag { border-color: var(--aurora); background: rgba(0,229,200,0.05); }
-.nd-drop.has-image { padding: 0; }
-.nd-drop.running { pointer-events: none; opacity: 0.6; }
-.nd-drop img { width: 100%; height: 260px; object-fit: cover; display: block; }
-.nd-drop-empty { text-align: center; color: var(--muted); padding: 20px; }
-.nd-drop-icon { font-size: 2.2rem; margin-bottom: 10px; }
-.nd-drop-title { color: var(--star); font-weight: 500; margin-bottom: 4px; }
-.nd-drop-sub { font-size: 0.8rem; color: var(--dim); }
-
-.nd-btn { width: 100%; margin-top: 16px; padding: 12px; border-radius: 10px; border: none; font-family: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.15s; }
-.nd-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.nd-btn-primary { background: linear-gradient(90deg, var(--nebula), var(--aurora)); color: #06060f; }
-.nd-btn-primary:not(:disabled):hover { transform: translateY(-1px); }
-
-.nd-btn-group { display: flex; gap: 12px; width: 100%; margin-top: 16px; }
-.nd-btn-group .nd-btn { margin-top: 0; }
-.nd-btn-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--star); }
-.nd-btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
-
-.nd-initial-question { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
-.nd-initial-question label { font-size: 0.82rem; color: var(--star); font-weight: 500; }
-.nd-initial-question textarea { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--star); font-family: inherit; font-size: 0.85rem; transition: border-color 0.2s; resize: none; overflow: hidden; min-height: 44px; line-height: 1.4; }
-.nd-initial-question textarea:focus { outline: none; border-color: var(--nebula); }
-.nd-initial-question textarea:disabled { opacity: 0.5; cursor: not-allowed; }
-.nd-question-char-count { font-size: 0.7rem; color: var(--dim); text-align: right; margin-top: -4px; font-family: 'Space Mono', monospace; }
-
-.nd-filename { margin-top: 12px; font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
-.nd-filename span { color: var(--dim); }
-.nd-error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.82rem; border: 1px solid rgba(255,78,106,0.4); background: rgba(255,78,106,0.08); color: #ffb3c0; }
-
-.nd-upload-progress { margin-top: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; height: 16px; position: relative; overflow: hidden; border: 1px solid var(--border); }
-.nd-upload-progress-bar { height: 100%; background: linear-gradient(90deg, var(--nebula), var(--aurora)); transition: width 0.15s ease-out; }
-.nd-upload-progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-family: 'Space Mono', monospace; color: white; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
-
-.nd-remove-btn { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(4px); transition: all 0.2s; }
-.nd-remove-btn:hover { background: rgba(255,78,106,0.8); border-color: #ff4e6a; transform: scale(1.1); }
-.nd-drop:focus-visible { outline: 2px solid var(--aurora); outline-offset: 4px; }
-
-.nd-pipeline { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
-.nd-stage { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); opacity: 0.4; transition: opacity 0.3s, border-color 0.3s; }
-.nd-stage.active { opacity: 1; border-color: var(--nebula); background: rgba(108,71,255,0.08); }
-.nd-stage.done { opacity: 0.85; border-color: var(--aurora); }
-.nd-stage-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); flex-shrink: 0; }
-.nd-stage.done .nd-stage-icon { background: var(--aurora); color: #06060f; }
-.nd-stage-title { font-size: 0.85rem; font-weight: 600; }
-.nd-stage-desc { font-size: 0.72rem; color: var(--dim); }
-
-.nd-placeholder { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: var(--dim); text-align: center; font-size: 0.9rem; }
-.nd-spinner { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid var(--border); border-top-color: var(--aurora); animation: nd-spin 0.8s linear infinite; }
-@keyframes nd-spin { to { transform: rotate(360deg); } }
-
-.nd-section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 4px 0 14px; font-family: 'Space Mono', monospace; }
-.nd-classes { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
-.nd-class-row { display: grid; grid-template-columns: 140px 1fr 44px; align-items: center; gap: 10px; font-size: 0.82rem; }
-.nd-class-label { display: flex; align-items: center; gap: 8px; color: var(--star); }
-.nd-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
-.nd-class-bar-track { height: 8px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; }
-.nd-class-bar { height: 100%; border-radius: 6px; transition: width 0.5s ease; }
-.nd-class-pct { text-align: right; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.78rem; }
-
-.nd-flags { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
-.nd-flag { font-size: 0.82rem; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-.nd-flag.danger { border-color: rgba(255,78,106,0.4); background: rgba(255,78,106,0.08); color: #ffb3c0; }
-.nd-flag.warning { border-color: rgba(255,184,78,0.4); background: rgba(255,184,78,0.08); color: #ffd699; }
-.nd-flag.info { border-color: rgba(0,229,200,0.3); background: rgba(0,229,200,0.06); color: var(--star); }
-
-.nd-chat { display: flex; flex-direction: column; gap: 10px; max-height: 220px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px; }
-.nd-msg { font-size: 0.85rem; line-height: 1.5; padding: 10px 12px; border-radius: 10px; max-width: 92%; }
-.nd-msg.assistant { background: var(--card); border: 1px solid var(--border); align-self: flex-start; }
-.nd-msg.user { background: rgba(108,71,255,0.18); align-self: flex-end; margin-left: auto; }
-.nd-chat-input { display: flex; gap: 8px; }
-.nd-chat-input input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--star); font-family: inherit; font-size: 0.85rem; }
-.nd-chat-input input:focus { outline: none; border-color: var(--nebula); }
-.nd-chat-input button { padding: 10px 16px; border-radius: 8px; border: none; background: var(--aurora); color: #06060f; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
-.nd-chat-input button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.nd-usecases { display: flex; gap: 10px; margin-bottom: 18px; }
-.nd-usecase-card { flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(0,229,200,0.2); background: rgba(0,229,200,0.04); }
-.nd-uc-name { font-size: 0.82rem; font-weight: 600; color: var(--aurora); margin-bottom: 4px; }
-.nd-uc-rationale { font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
-
-.nd-actions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-.nd-action-card { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(108,71,255,0.2); background: rgba(108,71,255,0.04); }
-.nd-action-audience { font-size: 0.72rem; font-family: 'Space Mono', monospace; font-weight: 600; color: var(--nebula); white-space: nowrap; min-width: 100px; }
-.nd-action-text { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
-
-.nd-view-toggle { display: flex; gap: 6px; margin-top: 10px; }
-.nd-view-btn { flex: 1; padding: 8px 0; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: inherit; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; text-align: center; }
-.nd-view-btn.active { border-color: var(--aurora); background: rgba(0,229,200,0.1); color: var(--aurora); font-weight: 600; }
-.nd-view-btn:hover:not(.active) { border-color: rgba(0,229,200,0.4); color: var(--star); }
-
-.nd-img-stack { width: 100%; height: 260px; position: relative; }
-.nd-img-stack img { width: 100%; height: 260px; object-fit: cover; display: block; }
-.nd-blend-container { width: 100%; height: 260px; position: relative; }
-.nd-blend-base { width: 100%; height: 260px; object-fit: cover; display: block; }
-.nd-blend-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 260px; object-fit: cover; mix-blend-mode: screen; }
-
-.nd-opacity-slider { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding: 0 4px; }
-.nd-opacity-slider label { font-size: 0.72rem; color: var(--muted); font-family: 'Space Mono', monospace; white-space: nowrap; }
-.nd-opacity-slider input[type=range] { flex: 1; accent-color: var(--aurora); height: 4px; }
-
-.nd-scene-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(0,229,200,0.2); background: rgba(0,229,200,0.05); font-size: 0.82rem; color: var(--aurora); margin-bottom: 14px; }
-
-.nd-charts-row { display: flex; gap: 12px; margin-bottom: 18px; }
-.nd-chart-card { flex: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--card); }
-.nd-chart-card img { width: 100%; display: block; }
-
-.nd-ndvi-section { display: flex; gap: 12px; margin-bottom: 18px; }
-.nd-ndvi-score-card { flex: 1; padding: 14px; border-radius: 10px; border: 1px solid rgba(26,152,80,0.25); background: rgba(26,152,80,0.05); display: flex; flex-direction: column; gap: 6px; }
-.nd-ndvi-value { font-size: 1.8rem; font-weight: 700; font-family: 'Space Mono', monospace; line-height: 1; }
-.nd-ndvi-label { font-size: 0.82rem; font-weight: 600; color: var(--star); }
-.nd-ndvi-range { font-size: 0.72rem; color: var(--dim); font-family: 'Space Mono', monospace; }
-.nd-ndvi-legend { margin-top: 6px; }
-.nd-legend-bar { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d73027, #fc8d59, #fee08b, #d9ef8b, #1a9850); }
-.nd-legend-labels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--dim); margin-top: 3px; }
-.nd-ndvi-heatmap { flex: 1; border-radius: 10px; overflow: hidden; border: 1px solid rgba(26,152,80,0.2); }
-.nd-ndvi-heatmap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.nd-export-row { display: flex; gap: 10px; margin-bottom: 18px; }
-.nd-btn-report { flex: 1; background: rgba(108,71,255,0.12); border: 1px solid rgba(108,71,255,0.3); color: var(--star); }
-.nd-btn-report:not(:disabled):hover { background: rgba(108,71,255,0.22); transform: translateY(-1px); }
-.nd-btn-png { flex: 1; background: rgba(0,229,200,0.08); border: 1px solid rgba(0,229,200,0.25); color: var(--star); }
-.nd-btn-png:not(:disabled):hover { background: rgba(0,229,200,0.18); transform: translateY(-1px); }
-
-.nd-compare-section { margin-top: 32px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
-.nd-compare-panel { margin-top: 14px; }
-.nd-compare-uploads { display: flex; gap: 16px; margin-bottom: 16px; }
-.nd-compare-slot { flex: 1; }
-.nd-compare-label { font-size: 0.75rem; font-family: 'Space Mono', monospace; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
-.nd-compare-thumb { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
-.nd-compare-empty { width: 100%; height: 140px; border-radius: 10px; border: 1.5px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--dim); font-size: 0.82rem; }
-.nd-compare-dropzone { cursor: pointer; transition: border-color 0.2s; }
-.nd-compare-dropzone:hover { border-color: var(--aurora); color: var(--aurora); }
-.nd-compare-results { margin-top: 20px; }
-.nd-delta-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
-.nd-delta-header { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; padding: 8px 14px; background: var(--card); font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--muted); text-transform: uppercase; }
-.nd-delta-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; padding: 8px 14px; border-top: 1px solid var(--border); font-size: 0.82rem; }
-.nd-delta-label { color: var(--star); font-weight: 500; }
-.nd-delta-val { font-weight: 600; font-family: 'Space Mono', monospace; }
-.nd-delta-val.pos { color: #00e5a0; }
-.nd-delta-val.neg { color: #ff4e6a; }
-.nd-compare-chart { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
-.nd-compare-chart img { width: 100%; display: block; }
 `;
