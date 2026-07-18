@@ -56,6 +56,15 @@ const PIPELINE_STAGES = [
   { icon: "💬", title: "AI Insight", desc: "Generating expert summaries" },
 ];
 
+const QUESTION_SUGGESTIONS = [
+  "Describe this image.",
+  "Is agriculture suitable here?",
+  "Is there flooding?",
+  "What type of land cover exists?",
+  "Describe nearby settlements.",
+  "What environmental risks can you identify?"
+];
+
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
@@ -366,15 +375,48 @@ function NovaDemo() {
 
             <div className="nd-initial-question">
               <label htmlFor="initial-question-input">What do you want to know?</label>
-              <input 
+              <textarea 
                 id="initial-question-input"
-                type="text" 
                 placeholder="e.g. Find all buildings in this area" 
                 value={initialQuestion}
-                onChange={(e) => setInitialQuestion(e.target.value)}
+                onChange={(e) => {
+                  setInitialQuestion(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                maxLength={500}
                 disabled={status === "running"}
-                onKeyDown={(e) => e.key === "Enter" && !(!file || !initialQuestion.trim() || status === "running") && runAnalysis()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (file && initialQuestion.trim() && status !== "running") {
+                      runAnalysis();
+                    }
+                  }
+                }}
               />
+              <div className="nd-question-char-count">
+                {initialQuestion.length} / 500
+              </div>
+              <div className="nd-question-suggestions">
+                {QUESTION_SUGGESTIONS.map(q => (
+                  <button 
+                    key={q} 
+                    className="nd-suggestion-chip" 
+                    onClick={() => {
+                      setInitialQuestion(q);
+                      const el = document.getElementById("initial-question-input");
+                      if (el) {
+                        el.style.height = "auto";
+                        el.style.height = `${el.scrollHeight}px`;
+                      }
+                    }}
+                    disabled={status === "running"}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <button className="nd-btn nd-btn-primary" disabled={!file || !initialQuestion.trim() || status === "running"} onClick={runAnalysis}>
@@ -808,9 +850,14 @@ const css = `
 
 .nd-initial-question { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
 .nd-initial-question label { font-size: 0.82rem; color: var(--star); font-weight: 500; }
-.nd-initial-question input { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--star); font-family: inherit; font-size: 0.85rem; transition: border-color 0.2s; }
-.nd-initial-question input:focus { outline: none; border-color: var(--nebula); }
-.nd-initial-question input:disabled { opacity: 0.5; cursor: not-allowed; }
+.nd-initial-question textarea { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--star); font-family: inherit; font-size: 0.85rem; transition: border-color 0.2s; resize: none; overflow: hidden; min-height: 44px; line-height: 1.4; }
+.nd-initial-question textarea:focus { outline: none; border-color: var(--nebula); }
+.nd-initial-question textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+.nd-question-char-count { font-size: 0.7rem; color: var(--dim); text-align: right; margin-top: -4px; font-family: 'Space Mono', monospace; }
+.nd-question-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.nd-suggestion-chip { background: rgba(0,229,200,0.05); border: 1px solid rgba(0,229,200,0.2); border-radius: 12px; padding: 4px 10px; font-size: 0.72rem; color: var(--aurora); cursor: pointer; transition: all 0.2s; font-family: inherit; white-space: nowrap; }
+.nd-suggestion-chip:hover:not(:disabled) { background: rgba(0,229,200,0.15); border-color: var(--aurora); }
+.nd-suggestion-chip:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .nd-filename { margin-top: 12px; font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; }
 .nd-filename span { color: var(--dim); }
