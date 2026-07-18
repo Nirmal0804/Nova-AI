@@ -78,6 +78,26 @@ export const AnalysisResults = memo(({ result, askInsight, insightLoading }: Ana
           </div>
         )}
 
+        {result.classes && result.classes.length > 0 && (
+          <div className="cb-report-section">
+            <h4 className="cb-section-title">Land Cover Distribution</h4>
+            <div className="cb-classes">
+              {result.classes.map((c) => (
+                <div className="cb-class-row" key={c.label}>
+                  <div className="cb-class-label">
+                    <div className="cb-swatch" style={{ background: c.color }}></div>
+                    <span>{c.label}</span>
+                  </div>
+                  <div className="cb-class-bar-track">
+                    <div className="cb-class-bar" style={{ width: `${c.pct}%`, background: c.color }}></div>
+                  </div>
+                  <div className="cb-class-pct">{c.pct}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* QUICK EO INSIGHTS PANEL */}
         <div className="cb-report-section">
           <h4 className="cb-section-title">Quick EO Insights</h4>
