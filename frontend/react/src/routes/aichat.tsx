@@ -264,6 +264,9 @@ function NovaDemo() {
               <div className="cb-dot" />
               NOVA AI
             </Link>
+            <Link to="/" className="cb-back-link">
+              ← Back to overview
+            </Link>
           </header>
 
           <div className="cb-chat-container">
@@ -546,6 +549,8 @@ const css = `
 .cb-main { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
 .cb-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; }
 .cb-logo-text { font-family: 'Space Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--aurora); letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.cb-back-link { font-size: 0.85rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+.cb-back-link:hover { color: var(--star); }
 
 .cb-chat-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 0 24px; }
 
