@@ -1,0 +1,346 @@
+.landing-root {
+  --void: #03030a;
+  --deep: #080818;
+  --surface: #0d0d24;
+  --card: #11112e;
+  --border: rgba(120, 100, 255, 0.18);
+  --nebula: #6c47ff;
+  --nebula-glow: rgba(108, 71, 255, 0.35);
+  --aurora: #00e5c8;
+  --aurora-glow: rgba(0, 229, 200, 0.25);
+  --star: #f0edff;
+  --muted: rgba(240, 237, 255, 0.55);
+  --dim: rgba(240, 237, 255, 0.28);
+  
+  background: var(--void);
+  color: var(--star);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.landing-root * { box-sizing: border-box; }
+.landing-root h1, .landing-root h2, .landing-root h3, .landing-root p, .landing-root ul { margin: 0; padding: 0; }
+.landing-root ul { list-style: none; }
+
+/* Layout / Container */
+.landing-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+@media (max-width: 768px) {
+  .landing-container {
+    padding: 0 20px;
+  }
+}
+
+/* Typography */
+.landing-root h1 {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 24px;
+}
+.landing-root h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin-bottom: 32px;
+  text-align: center;
+}
+.landing-root h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.landing-accent {
+  color: var(--aurora);
+}
+
+/* CTA Buttons */
+.landing-btn {
+  display: inline-block;
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  border: none;
+}
+.landing-btn-primary {
+  background: linear-gradient(135deg, var(--nebula), #8867ff);
+  color: white;
+  box-shadow: 0 0 30px var(--nebula-glow);
+}
+.landing-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px var(--nebula-glow);
+}
+.landing-btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--star);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+.landing-btn-secondary:hover {
+  border-color: var(--aurora);
+  color: var(--aurora);
+  box-shadow: 0 0 24px var(--aurora-glow);
+}
+
+/* 1. Hero Section */
+.landing-hero {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-top: 80px;
+  padding-bottom: 80px;
+  position: relative;
+}
+.landing-hero-sub {
+  font-size: 1.1rem;
+  color: var(--muted);
+  max-width: 700px;
+  margin: 0 auto 40px;
+  line-height: 1.6;
+}
+.landing-cta-group {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* 2. How NovaAI Works */
+.landing-works {
+  padding: 100px 0;
+  background: var(--deep);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.landing-pipeline {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 40px;
+  position: relative;
+}
+.landing-stage {
+  flex: 1;
+  background: linear-gradient(180deg, var(--card), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 20px;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.landing-stage:hover {
+  transform: translateY(-4px);
+  border-color: var(--aurora);
+  box-shadow: 0 10px 30px -15px var(--aurora-glow);
+}
+.landing-stage-num {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--aurora);
+  margin-bottom: 12px;
+  display: block;
+}
+.landing-stage-desc {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.landing-emphasis {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--aurora);
+  font-weight: 600;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .landing-pipeline {
+    flex-direction: column;
+  }
+}
+
+/* 3. Supported Land Cover Types */
+.landing-categories {
+  padding: 100px 0;
+}
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.landing-category-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.landing-category-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--nebula);
+}
+.landing-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.landing-zero-shot-note {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* 4. Sample Output */
+.landing-sample {
+  padding: 100px 0;
+  background: var(--deep);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.landing-sample-flex {
+  display: flex;
+  gap: 60px;
+  align-items: flex-start;
+}
+.landing-sample-card {
+  flex: 3;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+.landing-limitations {
+  flex: 2;
+}
+.landing-limitations h3 {
+  color: var(--aurora);
+  margin-bottom: 20px;
+}
+.landing-limitations li {
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  padding-left: 20px;
+  position: relative;
+}
+.landing-limitations li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--nebula);
+}
+
+.sample-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+.sample-badge {
+  background: rgba(0, 229, 200, 0.1);
+  color: var(--aurora);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(0, 229, 200, 0.3);
+}
+.sample-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 32px;
+}
+.sample-bar-segment {
+  height: 100%;
+}
+.sample-text p {
+  color: var(--star);
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.sample-meta {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--dim);
+  display: flex;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .landing-sample-flex {
+    flex-direction: column;
+  }
+}
+
+/* 5. Technologies */
+.landing-tech {
+  padding: 100px 0;
+}
+.landing-tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+.landing-tech-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+.landing-tech-label {
+  font-family: 'Space Mono', monospace;
+  color: var(--nebula);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+.landing-tech-list {
+  color: var(--star);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+/* 6. Closing CTA */
+.landing-closing {
+  padding: 120px 0;
+  text-align: center;
+  background: var(--deep);
+  border-top: 1px solid var(--border);
+}
+.landing-closing-copy {
+  color: var(--muted);
+  margin-top: 16px;
+  font-size: 1.1rem;
+}

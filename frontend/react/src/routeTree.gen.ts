@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LegacyLandingRouteImport } from './routes/legacy-landing'
 import { Route as AichatRouteImport } from './routes/aichat'
 import { Route as IndexRouteImport } from './routes/index'
 
+const LegacyLandingRoute = LegacyLandingRouteImport.update({
+  id: '/legacy-landing',
+  path: '/legacy-landing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AichatRoute = AichatRouteImport.update({
   id: '/aichat',
   path: '/aichat',
@@ -26,31 +32,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/aichat': typeof AichatRoute
+  '/legacy-landing': typeof LegacyLandingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/aichat': typeof AichatRoute
+  '/legacy-landing': typeof LegacyLandingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/aichat': typeof AichatRoute
+  '/legacy-landing': typeof LegacyLandingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/aichat'
+  fullPaths: '/' | '/aichat' | '/legacy-landing'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/aichat'
-  id: '__root__' | '/' | '/aichat'
+  to: '/' | '/aichat' | '/legacy-landing'
+  id: '__root__' | '/' | '/aichat' | '/legacy-landing'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AichatRoute: typeof AichatRoute
+  LegacyLandingRoute: typeof LegacyLandingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/legacy-landing': {
+      id: '/legacy-landing'
+      path: '/legacy-landing'
+      fullPath: '/legacy-landing'
+      preLoaderRoute: typeof LegacyLandingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/aichat': {
       id: '/aichat'
       path: '/aichat'
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AichatRoute: AichatRoute,
+  LegacyLandingRoute: LegacyLandingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
