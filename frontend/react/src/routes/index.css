@@ -105,17 +105,17 @@
 }
 
 /* sections */
-.nova-root section { position: relative; z-index: 2; }
+.nova-root section { position: relative; z-index: 2; scroll-margin-top: 80px; }
 .container { max-width: 1140px; margin: 0 auto; padding: 0 40px; }
 
 /* hero */
 #hero {
   min-height: 100vh; display: flex; align-items: center;
-  padding: 120px 40px 80px; position: relative; overflow: hidden;
+  padding: 120px 40px 80px; position: relative;
 }
 .hero-orb { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; }
-.orb1 { width: 620px; height: 620px; top: -120px; right: -160px; background: rgba(108,71,255,0.22); animation: nova-drift 18s ease-in-out infinite alternate; }
-.orb2 { width: 420px; height: 420px; bottom: -120px; left: -120px; background: rgba(0,229,200,0.14); animation: nova-drift 22s ease-in-out infinite alternate-reverse; }
+.orb1 { width: 620px; height: 620px; top: -120px; right: 0px; background: rgba(108,71,255,0.22); animation: nova-drift 18s ease-in-out infinite alternate; }
+.orb2 { width: 420px; height: 420px; bottom: -120px; left: 0px; background: rgba(0,229,200,0.14); animation: nova-drift 22s ease-in-out infinite alternate-reverse; }
 .orb3 { width: 300px; height: 300px; top: 40%; left: 45%; background: rgba(255,78,106,0.06); animation: nova-drift 26s ease-in-out infinite alternate; }
 @keyframes nova-drift {
   from { transform: translate(0,0) scale(1); }
@@ -278,9 +278,9 @@
 
 /* solution */
 #solution { padding: 110px 40px; background: var(--deep); position: relative; }
-.flow { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+.flow { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; max-width: 900px; margin: 0 auto; }
 .flow-step {
-  flex: 1 1 180px; max-width: 240px;
+  flex: 1 1 240px; max-width: 260px;
   background: linear-gradient(180deg, var(--card), var(--surface));
   border: 1px solid var(--border); border-radius: 14px; padding: 24px 20px;
   text-align: center; transition: border-color 0.2s, transform 0.2s;
@@ -367,7 +367,7 @@ footer span { color: var(--aurora); }
     padding-left: 20px; padding-right: 20px;
   }
   .tech-grid { grid-template-columns: 1fr; }
-  .flow { flex-direction: column; align-items: stretch; gap: 16px; }
-  .flow-step { max-width: none; }
+  .flow { flex-direction: column; align-items: center; gap: 16px; }
+  .flow-step { max-width: 100%; width: 100%; }
   .scroll-hint { display: none; }
 }

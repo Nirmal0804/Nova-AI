@@ -1,8 +1,8 @@
 import { a as __toESM } from "../_runtime.mjs";
 import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
 import { h as Link } from "../_libs/@tanstack/react-router+[...].mjs";
-import "./router-CLeSrwHw.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-gL5HtTVt.js
+import "./router-Cc_2IslU.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-Ci9fhNPI.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var flow = [
@@ -221,10 +221,18 @@ function NovaLanding() {
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
 								href: "#solution",
+								onClick: (e) => {
+									e.preventDefault();
+									document.getElementById("solution")?.scrollIntoView({ behavior: "smooth" });
+								},
 								children: "How it Works"
 							}) }),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", {
 								href: "#landcover",
+								onClick: (e) => {
+									e.preventDefault();
+									document.getElementById("landcover")?.scrollIntoView({ behavior: "smooth" });
+								},
 								children: "Land Cover"
 							}) }),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {

@@ -2,7 +2,7 @@ import { a as __toESM } from "../_runtime.mjs";
 import { n as require_jsx_runtime, r as require_react, t as QueryClientProvider } from "../_libs/react+tanstack__react-query.mjs";
 import { c as HeadContent, d as Outlet, f as lazyRouteComponent, g as useRouter, h as Link, m as createRootRouteWithContext, p as createFileRoute, s as Scripts, u as createRouter } from "../_libs/@tanstack/react-router+[...].mjs";
 import { t as QueryClient } from "../_libs/tanstack__query-core.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/router-CLeSrwHw.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-Cc_2IslU.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var styles_default = "/assets/styles-ZdMUtZgO.css";
@@ -171,9 +171,9 @@ function RootComponent() {
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Outlet, {})
 	});
 }
-var $$splitComponentImporter$1 = () => import("./aichat-BJgY1kMS.mjs");
+var $$splitComponentImporter$1 = () => import("./aichat-BnM4gSYp.mjs");
 var Route$1 = createFileRoute("/aichat")({ component: lazyRouteComponent($$splitComponentImporter$1, "component") });
-var $$splitComponentImporter = () => import("./routes-gL5HtTVt.mjs");
+var $$splitComponentImporter = () => import("./routes-Ci9fhNPI.mjs");
 var Route = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter, "component") });
 var AichatRoute = Route$1.update({
 	id: "/aichat",

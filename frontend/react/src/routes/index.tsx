@@ -124,8 +124,8 @@ function NovaLanding() {
           <span className="nova-live">● LIVE</span>
         </div>
         <ul className="nova-links">
-          <li><a href="#solution">How it Works</a></li>
-          <li><a href="#landcover">Land Cover</a></li>
+          <li><a href="#solution" onClick={(e) => { e.preventDefault(); document.getElementById('solution')?.scrollIntoView({ behavior: 'smooth' }); }}>How it Works</a></li>
+          <li><a href="#landcover" onClick={(e) => { e.preventDefault(); document.getElementById('landcover')?.scrollIntoView({ behavior: 'smooth' }); }}>Land Cover</a></li>
           <li><Link to="/aichat">Try Demo</Link></li>
         </ul>
         <div className="nova-tag">SIH25170</div>

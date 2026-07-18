@@ -22,40 +22,40 @@ var public_assets_data_default = {
 		"size": 270398,
 		"path": "../public/favicon.ico"
 	},
-	"/assets/index-CRVIumkM.css": {
-		"type": "text/css; charset=utf-8",
-		"etag": "\"72a4-wn+SvanlLF98Tcue6OWxePxzIhk\"",
-		"mtime": "2026-07-18T12:01:22.344Z",
-		"size": 29348,
-		"path": "../public/assets/index-CRVIumkM.css"
-	},
-	"/assets/routes-0gI-lMlV.js": {
+	"/assets/aichat-45QXwy1L.js": {
 		"type": "text/javascript; charset=utf-8",
-		"etag": "\"30fb-S/Fsdj+fZqDvvNHDo7RBI1GErY8\"",
-		"mtime": "2026-07-18T12:01:22.344Z",
-		"size": 12539,
-		"path": "../public/assets/routes-0gI-lMlV.js"
+		"etag": "\"555d8-c4i+au6kkF2D+Tni6J+4dwxU/ms\"",
+		"mtime": "2026-07-18T12:27:38.157Z",
+		"size": 349656,
+		"path": "../public/assets/aichat-45QXwy1L.js"
+	},
+	"/assets/index-C1M3_Dn0.js": {
+		"type": "text/javascript; charset=utf-8",
+		"etag": "\"542be-7+n+DYrFUjHQrYxYANdpPiyd9NI\"",
+		"mtime": "2026-07-18T12:27:38.156Z",
+		"size": 344766,
+		"path": "../public/assets/index-C1M3_Dn0.js"
+	},
+	"/assets/index-CXKDt4w2.css": {
+		"type": "text/css; charset=utf-8",
+		"etag": "\"72b9-HcwMO7okEmxHYTNtQ49pCwDM5sY\"",
+		"mtime": "2026-07-18T12:27:38.158Z",
+		"size": 29369,
+		"path": "../public/assets/index-CXKDt4w2.css"
+	},
+	"/assets/routes-C9ujfODU.js": {
+		"type": "text/javascript; charset=utf-8",
+		"etag": "\"31ce-Bcjlz4FP9QLdRWak2jwrEH7moYU\"",
+		"mtime": "2026-07-18T12:27:38.158Z",
+		"size": 12750,
+		"path": "../public/assets/routes-C9ujfODU.js"
 	},
 	"/assets/styles-ZdMUtZgO.css": {
 		"type": "text/css; charset=utf-8",
 		"etag": "\"111e7-D+u0D5VqQpnNRaaHHX9BiLXNnls\"",
-		"mtime": "2026-07-18T12:01:22.344Z",
+		"mtime": "2026-07-18T12:27:38.158Z",
 		"size": 70119,
 		"path": "../public/assets/styles-ZdMUtZgO.css"
-	},
-	"/assets/aichat-DU1iK-gF.js": {
-		"type": "text/javascript; charset=utf-8",
-		"etag": "\"555d8-Nirxx3Ld3ELkqN9SIhlJ76uAoWw\"",
-		"mtime": "2026-07-18T12:01:22.344Z",
-		"size": 349656,
-		"path": "../public/assets/aichat-DU1iK-gF.js"
-	},
-	"/assets/index-D4Lt8XNG.js": {
-		"type": "text/javascript; charset=utf-8",
-		"etag": "\"542be-D5ipLszOzCW3k4yaPF8uQLyEYDE\"",
-		"mtime": "2026-07-18T12:01:22.344Z",
-		"size": 344766,
-		"path": "../public/assets/index-D4Lt8XNG.js"
 	}
 };
 //#endregion
