@@ -22,40 +22,40 @@ var public_assets_data_default = {
 		"size": 270398,
 		"path": "../public/favicon.ico"
 	},
-	"/assets/aichat-_Bt7GRxY.js": {
-		"type": "text/javascript; charset=utf-8",
-		"etag": "\"555d8-1+FOyb79SenqWflv0afeerugM5k\"",
-		"mtime": "2026-07-18T09:14:18.889Z",
-		"size": 349656,
-		"path": "../public/assets/aichat-_Bt7GRxY.js"
-	},
-	"/assets/index-BaF4KY5N.js": {
-		"type": "text/javascript; charset=utf-8",
-		"etag": "\"5428f-NHo4q2WgBLhSFsgzEOs47bWhTfA\"",
-		"mtime": "2026-07-18T09:14:18.887Z",
-		"size": 344719,
-		"path": "../public/assets/index-BaF4KY5N.js"
-	},
 	"/assets/index-CfNM2BrL.css": {
 		"type": "text/css; charset=utf-8",
 		"etag": "\"78bb-icDtAwQMJ1Irs8Qc21iAxvpgzdk\"",
-		"mtime": "2026-07-18T09:14:18.889Z",
+		"mtime": "2026-07-18T09:29:13.859Z",
 		"size": 30907,
 		"path": "../public/assets/index-CfNM2BrL.css"
 	},
-	"/assets/routes-C2chUdVA.js": {
-		"type": "text/javascript; charset=utf-8",
-		"etag": "\"2061-KCEz7WJLBg9GVGSSCgx4FqPqsYg\"",
-		"mtime": "2026-07-18T09:14:18.889Z",
-		"size": 8289,
-		"path": "../public/assets/routes-C2chUdVA.js"
-	},
-	"/assets/styles-B1oLl5kK.css": {
+	"/assets/styles-I_TklctN.css": {
 		"type": "text/css; charset=utf-8",
-		"etag": "\"11c68-pqv2t+pDVuGwOLzEQ3jhx0eOtaI\"",
-		"mtime": "2026-07-18T09:14:18.889Z",
-		"size": 72808,
-		"path": "../public/assets/styles-B1oLl5kK.css"
+		"etag": "\"11c77-/6/yXpR1zWs+PCRDghBdokS7dzI\"",
+		"mtime": "2026-07-18T09:29:13.859Z",
+		"size": 72823,
+		"path": "../public/assets/styles-I_TklctN.css"
+	},
+	"/assets/routes-B_rn74Yd.js": {
+		"type": "text/javascript; charset=utf-8",
+		"etag": "\"2061-nIFmbNpfYdcgM/FMa68ZXgwB1OM\"",
+		"mtime": "2026-07-18T09:29:13.857Z",
+		"size": 8289,
+		"path": "../public/assets/routes-B_rn74Yd.js"
+	},
+	"/assets/aichat-C2EqVKPE.js": {
+		"type": "text/javascript; charset=utf-8",
+		"etag": "\"555d8-yylQZADbC0J7xD//cHr2UD7V3vE\"",
+		"mtime": "2026-07-18T09:29:13.857Z",
+		"size": 349656,
+		"path": "../public/assets/aichat-C2EqVKPE.js"
+	},
+	"/assets/index-CaEo2ElL.js": {
+		"type": "text/javascript; charset=utf-8",
+		"etag": "\"5428f-Xv13igeSpgJgCgS8B8+TjPgwmu0\"",
+		"mtime": "2026-07-18T09:29:13.857Z",
+		"size": 344719,
+		"path": "../public/assets/index-CaEo2ElL.js"
 	}
 };
 //#endregion
