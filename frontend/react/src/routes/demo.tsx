@@ -424,7 +424,7 @@ function NovaDemo() {
                 title="Attach satellite image"
                 onClick={() => document.getElementById("cb-file-input")?.click()}
               >
-                📎 <span className="cb-attach-text">Attach image</span>
+                📎 <span className="cb-attach-text">Attach</span>
               </button>
               <input
                 id="cb-file-input"
