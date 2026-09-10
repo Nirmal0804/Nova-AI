@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA AI – Multimodal Satellite Intelligence</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+
+<body>
+
+  <!-- STARFIELD -->
+  <div id="stars"></div>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">
+      <div class="dot"></div>
+      NOVA AI
+    </div>
+    <ul class="nav-links">
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#solution">Solution</a></li>
+      <li><a href="#usecases">Use Cases</a></li>
+      <li><a href="/aichat">Try Demo</a></li>
+    </ul>
+    <div class="nav-tag">SIH25170</div>
+  </nav>
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="hero-orb orb1"></div>
+    <div class="hero-orb orb2"></div>
+    <div class="hero-inner">
+      <div>
+        <div class="hero-eyebrow">Makeathon 3.0 · Space Technology</div>
+        <h1>
+          <span class="nebula-text">Multimodal AI</span><br>
+          for Earth<br>
+          <span class="accent">Observation</span>
+        </h1>
+        <p class="hero-sub">NOVA AI enhances GPT-OSS with vision capabilities built for ISRO Earth Observation data —
+          turning raw satellite imagery into clear, actionable intelligence.</p>
+        <div class="hero-cta">
+          <a href="/aichat" class="btn btn-primary">Enter Detection</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="orbit-ring r3"></div>
+        <div class="orbit-ring r2"></div>
+        <div class="orbit-ring r1"></div>
+        <div class="globe-core">🌍</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-eyebrow">The Challenge</div>
+        <h2>Why satellite data stays dark</h2>
+        <p class="section-sub">Earth Observation generates petabytes of imagery. Without AI, most of it goes unread —
+          and disasters go undetected.</p>
+      </div>
+      <div class="problem-grid">
+        <div class="problem-card">
+          <div class="prob-icon">🔍</div>
+          <div class="prob-title">Manual Interpretation</div>
+          <div class="prob-desc">Trained analysts spend hours manually reviewing satellite images to extract basic
+            land-use patterns — a bottleneck that doesn't scale.</div>
+        </div>
+        <div class="problem-card">
+          <div class="prob-icon">⏱️</div>
+          <div class="prob-title">Slow Disaster Analysis</div>
+          <div class="prob-desc">When floods or wildfires strike, response teams need imagery-based intelligence in
+            minutes. Current pipelines take days.</div>
+        </div>
+        <div class="problem-card">
+          <div class="prob-icon">🧩</div>
+          <div class="prob-title">Fragmented EO Insights</div>
+          <div class="prob-desc">Spectral bands, NDVI indices, and radar data live in separate tools — no single system
+            converts them into unified, readable insights.</div>
+        </div>
+        <div class="problem-card">
+          <div class="prob-icon">📡</div>
+          <div class="prob-title">Inaccessible for Non-Experts</div>
+          <div class="prob-desc">Complex satellite data formats and GIS tooling lock out environmental agencies,
+            planners, and first responders who need answers fast.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- SOLUTION -->
+  <section id="solution">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-eyebrow">How NOVA AI Works</div>
+        <h2>From raw image to clear insight</h2>
+        <p class="section-sub">A four-stage pipeline that combines computer vision and large language models to
+          translate satellite imagery into human-readable intelligence.</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="step-num">01</div>
+          <div class="step-icon">📤</div>
+          <div class="step-title">Image Ingestion</div>
+          <div class="step-desc">User uploads satellite image or connects to ISRO EO data streams via API</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">02</div>
+          <div class="step-icon">⚙️</div>
+          <div class="step-title">Preprocessing</div>
+          <div class="step-desc">Rasterio & GDAL normalize imagery; OpenCV handles spatial calibration</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">03</div>
+          <div class="step-icon">🧠</div>
+          <div class="step-title">Vision Analysis</div>
+          <div class="step-desc">ViT / EfficientNet segment land patterns — water, vegetation, urban cover</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="step-num">04</div>
+          <div class="step-icon">💬</div>
+          <div class="step-title">LLM Insight</div>
+          <div class="step-desc">GPT-OSS converts vision outputs into plain-language reports and answers questions</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <div class="divider"></div>
+
+  <!-- USE CASES -->
+  <section id="usecases">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-eyebrow">Real-World Applications</div>
+        <h2>What NOVA AI can see</h2>
+        <p class="section-sub">From emergency response to sustainable agriculture — one platform, many frontiers.</p>
+      </div>
+      <div class="usecase-grid">
+        <div class="usecase-card">
+          <div class="uc-icon-wrap red">🌊</div>
+          <div>
+            <div class="uc-title">Flood Detection & Disaster Monitoring</div>
+            <div class="uc-desc">Water body segmentation and change detection identify flood spread in near real-time,
+              enabling faster emergency mobilization.</div>
+          </div>
+        </div>
+        <div class="usecase-card">
+          <div class="uc-icon-wrap green">🌳</div>
+          <div>
+            <div class="uc-title">Deforestation & Environmental Tracking</div>
+            <div class="uc-desc">NDVI-based vegetation analysis quantifies forest cover loss and tracks ecosystem health
+              over months or decades.</div>
+          </div>
+        </div>
+        <div class="usecase-card">
+          <div class="uc-icon-wrap blue">🏙️</div>
+          <div>
+            <div class="uc-title">Urban Expansion Analysis</div>
+            <div class="uc-desc">Temporal satellite comparisons reveal city growth patterns, guiding infrastructure
+              planning and land-use policy.</div>
+          </div>
+        </div>
+        <div class="usecase-card">
+          <div class="uc-icon-wrap teal">🌾</div>
+          <div>
+            <div class="uc-title">Agriculture & Vegetation Monitoring</div>
+            <div class="uc-desc">Crop health indices and seasonal vegetation maps support farmers and food security
+              agencies with precision insights.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+
+  <footer>
+    <span>NOVA AI</span> · Team Yakuzas · SIH25170 · Makeathon 3.0 · Space Technology Track
+  </footer>
+
+  <script>
+    // Generate starfield
+    const container = document.getElementById('stars');
+    for (let i = 0; i < 200; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      const size = Math.random() * 2.5 + 0.5;
+      star.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random() * 100}%;
+      left:${Math.random() * 100}%;
+      --o:${Math.random() * 0.7 + 0.1};
+      --d:${Math.random() * 4 + 2}s;
+    `;
+      container.appendChild(star);
+    }
+
+    // Smooth reveal on scroll
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.problem-card,.flow-step,.tech-card,.usecase-card,.sdg-card,.aud-item').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+      el.style.transition = 'opacity 0.5s ease, transform 0.5s ease, border-color 0.25s';
+      observer.observe(el);
+    });
+  </script>
+</body>
+
+</html>

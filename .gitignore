@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+
+# Nova AI Models and Data
+models/
+data/
+*.log
+*.txt
+test_result.json
